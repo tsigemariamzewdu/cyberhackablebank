@@ -1,59 +1,52 @@
-import { useState, useEffect } from 'react';
-import { Table, Card, Button } from 'react-bootstrap';
-import axios from 'axios';
+import { useEffect, useState } from 'react';
+import { Card, Table, Row, Col } from 'react-bootstrap';
 
-const AdminPage = () => {
+function AdminPage() {
   const [users, setUsers] = useState([]);
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const response = await axios.get('http://localhost:3001/api/admin/users');
-        setUsers(response.data);
-      } catch (error) {
-        console.error('Error fetching users:', error);
-      }
-    };
-    fetchUsers();
+    fetch('http://localhost:3001/api/admin/users?secureMode=true')
+      .then(res => res.json())
+      .then(data => setUsers(data));
   }, []);
 
   return (
-    <div className="container mt-4">
-      <Card>
-        <Card.Header className="d-flex justify-content-between align-items-center">
-          <h3>Admin Dashboard</h3>
-        </Card.Header>
-        <Card.Body>
-          <Table striped bordered hover>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Username</th>
-                <th>Full Name</th>
-                <th>Email</th>
-                <th>Balance</th>
-                <th>Role</th>
-                <th>Joined</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map(user => (
-                <tr key={user.id}>
-                  <td>{user.id}</td>
-                  <td>{user.username}</td>
-                  <td>{user.full_name}</td>
-                  <td>{user.email}</td>
-                  <td>${user.balance.toFixed(2)}</td>
-                  <td>{user.role}</td>
-                  <td>{new Date(user.created_at).toLocaleDateString()}</td>
+    <Row className="justify-content-center align-items-center" style={{ minHeight: '70vh' }}>
+      <Col md={10} lg={8}>
+        <Card className="bank-card">
+          <Card.Body>
+            <h3 className="mb-4 text-center" style={{ color: 'var(--primary-color)' }}>
+              <i className="fas fa-user-shield me-2"></i>Admin Panel
+            </h3>
+            <Table bordered hover responsive>
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Role</th>
+                  <th>Balance</th>
+                  <th>Email</th>
+                  <th>Full Name</th>
+                  <th>Created At</th>
                 </tr>
-              ))}
-            </tbody>
-          </Table>
-        </Card.Body>
-      </Card>
-    </div>
+              </thead>
+              <tbody>
+                {users.map((user, idx) => (
+                  <tr key={idx}>
+                    <td>{user.username}</td>
+                    <td>{user.role}</td>
+                    <td>${user.balance?.toFixed(2)}</td>
+                    <td>{user.email}</td>
+                    <td>{user.full_name}</td>
+                    <td>{user.created_at ? new Date(user.created_at).toLocaleDateString() : ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </Card.Body>
+        </Card>
+      </Col>
+    </Row>
   );
-};
+}
 
 export default AdminPage;
