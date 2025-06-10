@@ -1,85 +1,77 @@
 import { useState } from 'react';
-import { Form, Button, Card, Alert, Container, FloatingLabel } from 'react-bootstrap';
-import axios from 'axios';
+import { Card, Form, Button, Row, Col } from 'react-bootstrap';
 
-const TransferPage = ({ user, addAlert }) => {
-  const [formData, setFormData] = useState({
-    toUser: '',
-    amount: '',
-    memo: ''
-  });
+function TransferPage({ user }) {
+  const [toUser, setToUser] = useState('');
+  const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState(null);
+  const [error, setError] = useState(null);
 
-  const handleSubmit = async (e) => {
+  const handleTransfer = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setMessage(null);
+    setError(null);
     try {
-      await axios.post('http://localhost:3001/api/transfer', {
-        fromUser: user.username,
-        toUser: formData.toUser,
-        amount: parseFloat(formData.amount),
-        memo: formData.memo
+      const res = await fetch('http://localhost:3001/api/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fromUser: user.username, toUser, amount: parseFloat(amount), secureMode: true })
       });
-      addAlert('Transfer successful!', 'success');
-      setFormData({ toUser: '', amount: '', memo: '' });
-    } catch (error) {
-      addAlert(error.response?.data?.error || 'Transfer failed', 'danger');
+      const data = await res.json();
+      if (res.ok) {
+        setMessage('Transfer successful!');
+      } else {
+        setError(data.error || 'Transfer failed');
+      }
+    } catch (err) {
+      setError('Network error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Container className="py-4" style={{ maxWidth: '600px' }}>
-      <Card className="shadow-sm">
-        <Card.Header className="bg-white">
-          <h4>Transfer Money</h4>
-          <p className="text-muted mb-0">Send money to other users</p>
-        </Card.Header>
-        <Card.Body>
-          <Form onSubmit={handleSubmit}>
-            <FloatingLabel controlId="toUser" label="Recipient Username" className="mb-3">
-              <Form.Control
-                type="text"
-                placeholder="Recipient Username"
-                value={formData.toUser}
-                onChange={(e) => setFormData({...formData, toUser: e.target.value})}
-                required
-              />
-            </FloatingLabel>
-
-            <FloatingLabel controlId="amount" label="Amount" className="mb-3">
-              <Form.Control
-                type="number"
-                min="0.01"
-                step="0.01"
-                placeholder="Amount"
-                value={formData.amount}
-                onChange={(e) => setFormData({...formData, amount: e.target.value})}
-                required
-              />
-            </FloatingLabel>
-
-            <FloatingLabel controlId="memo" label="Memo (Optional)" className="mb-3">
-              <Form.Control
-                as="textarea"
-                placeholder="Memo"
-                style={{ height: '100px' }}
-                value={formData.memo}
-                onChange={(e) => setFormData({...formData, memo: e.target.value})}
-              />
-            </FloatingLabel>
-
-            <div className="d-grid">
-              <Button variant="primary" type="submit" disabled={loading}>
-                {loading ? 'Processing...' : 'Transfer Money'}
+    <Row className="justify-content-center align-items-center" style={{ minHeight: '70vh' }}>
+      <Col md={7} lg={5}>
+        <Card className="bank-card">
+          <Card.Body>
+            <h3 className="mb-4 text-center" style={{ color: 'var(--primary-color)' }}>
+              <i className="fas fa-exchange-alt me-2"></i>Money Transfer
+            </h3>
+            <Form onSubmit={handleTransfer} autoComplete="off">
+              <Form.Group className="mb-3">
+                <Form.Label>Recipient Username</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={toUser}
+                  onChange={e => setToUser(e.target.value)}
+                  required
+                />
+              </Form.Group>
+              <Form.Group className="mb-4">
+                <Form.Label>Amount</Form.Label>
+                <Form.Control
+                  type="number"
+                  min="1"
+                  step="0.01"
+                  value={amount}
+                  onChange={e => setAmount(e.target.value)}
+                  required
+                />
+              </Form.Group>
+              <Button type="submit" className="w-100 btn-primary" disabled={loading}>
+                {loading ? 'Transferring...' : 'Transfer'}
               </Button>
-            </div>
-          </Form>
-        </Card.Body>
-      </Card>
-    </Container>
+            </Form>
+            {message && <div className="mt-3 text-success text-center">{message}</div>}
+            {error && <div className="mt-3 text-danger text-center">{error}</div>}
+          </Card.Body>
+        </Card>
+      </Col>
+    </Row>
   );
-};
+}
 
 export default TransferPage;

@@ -1,14 +1,16 @@
 import { useState } from 'react';
-import { Form, Button, Card, ListGroup, Row, Col } from 'react-bootstrap';
+import { Card, Form, Button, Row, Col } from 'react-bootstrap';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import ListGroup from 'react-bootstrap/ListGroup';
 
 
-const LoginPage = ({ secureMode, addAlert,setUser }) => {
+const LoginPage = ({ secureMode, addAlert, setUser }) => {
   const navigate = useNavigate();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const [attackExamples, setAttackExamples] = useState([
     "admin' --",
@@ -16,67 +18,72 @@ const LoginPage = ({ secureMode, addAlert,setUser }) => {
     "' OR 1=1 --",
     "admin' /*"
   ]);
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  try {
-    const response = await axios.post('http://localhost:3001/api/login', {
-      username,
-      password,
-      secureMode
-    });
 
-    setUser(response.data.user);
- // console.log(response.data.user) // Set user globally
-    addAlert(response.data.message, 'success');
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = await fetch('http://localhost:3001/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, secureMode })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setUser(data.user);
+        addAlert('Login successful!', 'success');
 
-    // Navigate based on role
-    const role = response.data.user;
-    if (role === 'admin') {
-      navigate('/admin');
-    } else {
-      navigate('/dashboard');
+        // Navigate based on role
+        const role = data.user;
+        if (role === 'admin') {
+          navigate('/admin');
+        } else {
+          navigate('/dashboard');
+        }
+      } else {
+        addAlert(data.error || 'Login failed', 'danger');
+      }
+    } catch (err) {
+      addAlert('Network error', 'danger');
+    } finally {
+      setLoading(false);
     }
-
-  } catch (error) {
-    addAlert(error.response?.data?.error || 'Login failed', 'danger');
-  }
-};
+  };
 
   return (
-    <div className='page-container'>
-      <Row>
-      <Col lg={6}>
-        <Card>
-          <Card.Header>
-            <h3 className="mb-0">Login</h3>
-            <small className={`text-${secureMode ? 'success' : 'danger'}`}>
-              {secureMode ? 'Secure Mode (Parameterized Queries)' : 'Vulnerable Mode (String Concatenation)'}
-            </small>
-          </Card.Header>
+    <Row className="justify-content-center align-items-center" style={{ minHeight: '70vh' }}>
+      <Col md={6} lg={4}>
+        <Card className="bank-card">
           <Card.Body>
-            <Form onSubmit={handleSubmit}>
+            <h3 className="mb-4 text-center" style={{ color: 'var(--primary-color)' }}>
+              <i className="fas fa-sign-in-alt me-2"></i>Login to SecureBank
+            </h3>
+            <Form onSubmit={handleSubmit} autoComplete="off">
               <Form.Group className="mb-3">
                 <Form.Label>Username</Form.Label>
                 <Form.Control
                   type="text"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Enter username"
+                  onChange={e => setUsername(e.target.value)}
+                  required
+                  autoFocus
                 />
               </Form.Group>
-
-              <Form.Group className="mb-3">
+              <Form.Group className="mb-4">
                 <Form.Label>Password</Form.Label>
                 <Form.Control
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
+                  onChange={e => setPassword(e.target.value)}
+                  required
                 />
               </Form.Group>
-
-              <Button variant="primary" type="submit" className="w-100">
-                Login
+              <Button
+                type="submit"
+                className="w-100 btn-primary"
+                disabled={loading}
+              >
+                {loading ? 'Logging in...' : 'Login'}
               </Button>
             </Form>
           </Card.Body>
@@ -128,7 +135,6 @@ const handleSubmit = async (e) => {
         )} */}
       </Col>
     </Row>
-    </div>
   );
 };
 

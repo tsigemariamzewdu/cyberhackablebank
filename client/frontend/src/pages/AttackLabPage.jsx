@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Container, Card, Form, Button, Alert, Tabs, Tab } from 'react-bootstrap';
+import { Container, Card, Form, Button, Alert, Tabs, Tab, Row, Col } from 'react-bootstrap';
 
 function AttackLabPage({ secureMode }) {
   const [attackType, setAttackType] = useState('auth-bypass');
@@ -85,76 +85,77 @@ function AttackLabPage({ secureMode }) {
   };
 
   return (
-    <Container className="mt-4">
-      <h2>SQL Injection Attack Lab</h2>
-      <Alert variant="warning">
-        This is a controlled environment for learning about SQL injection attacks.
-        {secureMode ? ' Secure mode is enabled - attacks will be blocked.' : ' Insecure mode is enabled - attacks may succeed.'}
-      </Alert>
-
-      <Card className="mb-4">
-        <Card.Body>
-          <Tabs
-            activeKey={attackType}
-            onSelect={(k) => setAttackType(k)}
-            className="mb-3"
-          >
-            {Object.entries(attackExamples).map(([key, value]) => (
-              <Tab key={key} eventKey={key} title={value.title}>
-                <Card.Text className="mt-3">{value.description}</Card.Text>
-                <Form>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Attack Payload</Form.Label>
-                    <Form.Control
-                      as="textarea"
-                      rows={3}
-                      value={payload}
-                      onChange={(e) => setPayload(e.target.value)}
-                      placeholder="Enter your SQL injection payload"
-                    />
-                  </Form.Group>
-                  <div className="mb-3">
-                    <h5>Example Payloads:</h5>
-                    <ul>
-                      {value.examples.map((example, index) => (
-                        <li key={index}>
-                          <code>{example}</code>
-                          <Button
-                            variant="link"
-                            size="sm"
-                            onClick={() => setPayload(example)}
-                          >
-                            Try this
-                          </Button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <Button variant="primary" onClick={handleAttack}>
-                    Execute Attack
-                  </Button>
-                </Form>
-              </Tab>
-            ))}
-          </Tabs>
-        </Card.Body>
-      </Card>
-
-      {error && (
-        <Alert variant="danger">
-          Error: {error}
-        </Alert>
-      )}
-
-      {result && (
-        <Card>
-          <Card.Header>Attack Result</Card.Header>
+    <Row className="justify-content-center align-items-center" style={{ minHeight: '70vh' }}>
+      <Col md={10} lg={8}>
+        <Card className="bank-card">
           <Card.Body>
-            <pre>{JSON.stringify(result, null, 2)}</pre>
+            <h3 className="mb-4 text-center" style={{ color: 'var(--primary-color)' }}>
+              <i className="fas fa-bug me-2"></i>SQL Injection Attack Lab
+            </h3>
+            <Alert variant="warning">
+              This is a controlled environment for learning about SQL injection attacks.
+              {secureMode ? ' Secure mode is enabled - attacks will be blocked.' : ' Insecure mode is enabled - attacks may succeed.'}
+            </Alert>
+            <Tabs
+              activeKey={attackType}
+              onSelect={(k) => setAttackType(k)}
+              className="mb-3"
+            >
+              {Object.entries(attackExamples).map(([key, value]) => (
+                <Tab key={key} eventKey={key} title={value.title}>
+                  <Card.Text className="mt-3">{value.description}</Card.Text>
+                  <Form>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Attack Payload</Form.Label>
+                      <Form.Control
+                        as="textarea"
+                        rows={3}
+                        value={payload}
+                        onChange={(e) => setPayload(e.target.value)}
+                        placeholder="Enter your SQL injection payload"
+                      />
+                    </Form.Group>
+                    <div className="mb-3">
+                      <h5>Example Payloads:</h5>
+                      <ul>
+                        {value.examples.map((example, index) => (
+                          <li key={index}>
+                            <code>{example}</code>
+                            <Button
+                              variant="link"
+                              size="sm"
+                              onClick={() => setPayload(example)}
+                            >
+                              Try this
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <Button variant="primary" onClick={handleAttack}>
+                      Execute Attack
+                    </Button>
+                  </Form>
+                </Tab>
+              ))}
+            </Tabs>
+            {error && (
+              <Alert variant="danger">
+                Error: {error}
+              </Alert>
+            )}
+            {result && (
+              <Card className="mt-4">
+                <Card.Header style={{ background: 'var(--accent-light)', color: '#fff' }}>Attack Result</Card.Header>
+                <Card.Body>
+                  <pre>{JSON.stringify(result, null, 2)}</pre>
+                </Card.Body>
+              </Card>
+            )}
           </Card.Body>
         </Card>
-      )}
-    </Container>
+      </Col>
+    </Row>
   );
 }
 
