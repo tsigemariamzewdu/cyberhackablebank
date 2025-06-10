@@ -1,74 +1,74 @@
 import { useState } from 'react';
-import { Card, Form, Button, Table, Container, Spinner } from 'react-bootstrap';
-import axios from 'axios';
+import { Card, Form, Button, Row, Col, Table } from 'react-bootstrap';
 
-const AccountPage = ({ user, addAlert }) => {
-  const [username, setUsername] = useState('');
+function AccountPage({ user }) {
+  const [lookupUser, setLookupUser] = useState('');
   const [account, setAccount] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const handleLookup = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
+    setAccount(null);
     try {
-      const response = await axios.get(
-        `http://localhost:3001/api/accounts/${username}`
-      );
-      setAccount(response.data);
-    } catch (error) {
-      setAccount(null);
-      addAlert('Account not found', 'danger');
+      const res = await fetch(`http://localhost:3001/api/accounts/${lookupUser}?secureMode=true`);
+      const data = await res.json();
+      if (res.ok) {
+        setAccount(data);
+      } else {
+        setError(data.error || 'Account not found');
+      }
+    } catch (err) {
+      setError('Network error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Container className="py-4" style={{ maxWidth: '800px' }}>
-      <Card className="shadow-sm mb-4">
-        <Card.Header className="bg-white">
-          <h4>Account Lookup</h4>
-          <p className="text-muted mb-0">Find other users to transfer money</p>
-        </Card.Header>
-        <Card.Body>
-          <Form onSubmit={handleLookup} className="d-flex gap-2">
-            <Form.Control
-              type="text"
-              placeholder="Enter username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-            />
-            <Button variant="primary" type="submit" disabled={loading}>
-              {loading ? <Spinner size="sm" /> : 'Search'}
-            </Button>
-          </Form>
-        </Card.Body>
-      </Card>
-
-      {account && (
-        <Card className="shadow-sm">
-          <Card.Header className="bg-white">
-            <h5>Account Details</h5>
-          </Card.Header>
+    <Row className="justify-content-center align-items-center" style={{ minHeight: '70vh' }}>
+      <Col md={7} lg={5}>
+        <Card className="bank-card">
           <Card.Body>
-            <Table borderless>
-              <tbody>
-                <tr>
-                  <td><strong>Username:</strong></td>
-                  <td>{account.username}</td>
-                </tr>
-                <tr>
-                  <td><strong>Account Since:</strong></td>
-                  <td>{new Date(account.created_at).toLocaleDateString()}</td>
-                </tr>
-              </tbody>
-            </Table>
+            <h3 className="mb-4 text-center" style={{ color: 'var(--primary-color)' }}>
+              <i className="fas fa-search me-2"></i>Account Lookup
+            </h3>
+            <Form onSubmit={handleLookup} autoComplete="off">
+              <Form.Group className="mb-4">
+                <Form.Label>Username</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={lookupUser}
+                  onChange={e => setLookupUser(e.target.value)}
+                  required
+                />
+              </Form.Group>
+              <Button type="submit" className="w-100 btn-primary" disabled={loading}>
+                {loading ? 'Looking up...' : 'Lookup Account'}
+              </Button>
+            </Form>
+            {error && <div className="mt-3 text-danger text-center">{error}</div>}
+            {account && (
+              <Table bordered className="mt-4">
+                <tbody>
+                  <tr>
+                    <th>Username</th>
+                    <td>{account.username}</td>
+                  </tr>
+                  <tr>
+                    <th>Balance</th>
+                    <td>${account.balance.toFixed(2)}</td>
+                  </tr>
+                </tbody>
+              </Table>
+            )}
           </Card.Body>
         </Card>
-      )}
-    </Container>
+      </Col>
+    </Row>
   );
-};
+}
 
 export default AccountPage;
