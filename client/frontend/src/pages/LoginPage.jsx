@@ -1,9 +1,6 @@
 import { useState } from 'react';
-import { Card, Form, Button, Row, Col, Alert } from 'react-bootstrap';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import ListGroup from 'react-bootstrap/ListGroup';
-
+import './LoginPage.css'; // We'll create this CSS file
 
 const LoginPage = ({ secureMode, addAlert, setUser }) => {
   const navigate = useNavigate();
@@ -12,7 +9,7 @@ const LoginPage = ({ secureMode, addAlert, setUser }) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const [attackExamples, setAttackExamples] = useState([
+  const [attackExamples] = useState([
     "admin' --",
     "' OR '1'='1",
     "' OR 1=1 --",
@@ -33,7 +30,6 @@ const LoginPage = ({ secureMode, addAlert, setUser }) => {
         setUser(data.user);
         addAlert('Login successful!', 'success');
 
-        // Navigate based on role
         const role = data.user;
         if (role === 'admin') {
           navigate('/admin');
@@ -51,110 +47,157 @@ const LoginPage = ({ secureMode, addAlert, setUser }) => {
   };
 
   return (
-    <Row className="justify-content-center align-items-center" style={{ minHeight: '70vh' }}>
-      <Col md={6} lg={4}>
-        <Card className="bank-card">
-          <Card.Body>
-            <h3 className="mb-4 text-center" style={{ color: 'var(--primary-color)' }}>
-              <i className="fas fa-sign-in-alt me-2"></i>{secureMode ? 'Secure Login' : 'Hackable Login'}
-            </h3>
-            <Form onSubmit={handleSubmit} autoComplete="off">
-              <Form.Group className="mb-3">
-                <Form.Label>Username</Form.Label>
-                <Form.Control
+    <div className="login-container">
+      <div className="login-grid">
+        
+        {/* Login Form */}
+        <div className="login-form-section">
+          <div className="login-card">
+            <div className="login-header">
+              <div className="login-icon">
+                <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <h2 className="login-title">
+                {secureMode ? 'Secure Login' : 'Hackable Login'}
+              </h2>
+              <p className="login-subtitle">
+                {secureMode ? 'Protected authentication system' : 'Vulnerable to SQL injection attacks'}
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="login-form">
+              <div className="form-group">
+                <label className="form-label">Username</label>
+                <input
                   type="text"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
                   required
                   autoFocus
+                  className="form-input"
+                  placeholder="Enter your username"
                 />
-              </Form.Group>
-              <Form.Group className="mb-4">
-                <Form.Label>Password</Form.Label>
-                <Form.Control
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Password</label>
+                <input
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   required
+                  className="form-input"
+                  placeholder="Enter your password"
                 />
-              </Form.Group>
-              <Button
+              </div>
+
+              <button
                 type="submit"
-                className="w-100 btn-primary"
                 disabled={loading}
+                className="login-button"
               >
-                {loading ? 'Logging in...' : 'Login'}
-              </Button>
-            </Form>
-          </Card.Body>
-        </Card>
-      </Col>
-      <Col md={5} className="d-flex align-items-center">
-        <Alert
-          variant={secureMode ? 'info' : 'danger'}
-          style={{ background: 'var(--accent-light)', color: '#fff', width: '100%' }}
-        >
-          {secureMode ? (
-            <>
-              <strong>Defense Mechanism:</strong> <br />
-              This login uses <b>parameterized queries</b> (prepared statements) to prevent SQL injection. User input is never directly concatenated into SQL queries.
-            </>
-          ) : (
-            <>
-              <strong>Vulnerability:</strong> <br />
-              This login is <b>vulnerable to SQL injection</b>!<br />
-              Try logging in with:<br />
-              <code>Username: anything<br />Password: ' OR '1'='1</code>
-            </>
-          )}
-        </Alert>
-      </Col>
+                {loading ? (
+                  <div className="loading-content">
+                    <div className="spinner"></div>
+                    Logging in...
+                  </div>
+                ) : (
+                  'Sign In'
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
 
-      <Col lg={6}>
-        <Card>
-          <Card.Header>
-            <h4 className="mb-0">SQL Injection Examples</h4>
-            <small>Try these in username field (password can be anything)</small>
-          </Card.Header>
-          <Card.Body>
-            <ListGroup variant="flush">
-              {attackExamples.map((example, index) => (
-                <ListGroup.Item 
-                  key={index} 
-                  action 
-                  onClick={() => {
-                    setUsername(example);
-                    setPassword('anything');
-                  }}
-                  className="d-flex align-items-center py-3"
-                >
-                  <code className="me-auto">{example}</code>
-                  <i className="bi bi-chevron-right"></i>
-                </ListGroup.Item>
-              ))}
-            </ListGroup>
-          </Card.Body>
-        </Card>
+        {/* Information Panel */}
+        <div className="info-panel">
+          {/* Security Info */}
+          <div className={`security-card ${secureMode ? 'secure' : 'vulnerable'}`}>
+            <div className="security-header">
+              <div className={`security-icon ${secureMode ? 'secure' : 'vulnerable'}`}>
+                {secureMode ? (
+                  <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                ) : (
+                  <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                )}
+              </div>
+              <div>
+                <h3 className="security-title">
+                  {secureMode ? 'Defense Mechanism' : 'Security Vulnerability'}
+                </h3>
+                <p className="security-description">
+                  {secureMode ? (
+                    <>
+                      This login uses <strong>parameterized queries</strong> (prepared statements) to prevent SQL injection. 
+                      User input is never directly concatenated into SQL queries.
+                    </>
+                  ) : (
+                    <>
+                      This login is <strong>vulnerable to SQL injection</strong>! The system directly concatenates user input 
+                      into SQL queries without proper sanitization.
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+          </div>
 
-        {/* {user && (
-          <Card className="mt-4">
-            <Card.Header>User Information</Card.Header>
-            <Card.Body>
-              <div className="d-flex justify-content-between">
-                <div>
-                  <h6>Username</h6>
-                  <p className="text-muted">{user.username}</p>
+          {/* Attack Examples */}
+          {!secureMode && (
+            <div className="examples-card">
+              <div className="examples-header">
+                <div className="examples-icon">
+                  <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                  </svg>
                 </div>
                 <div>
-                  <h6>Balance</h6>
-                  <p className="text-muted">${user.balance.toFixed(2)}</p>
+                  <h3 className="examples-title">SQL Injection Examples</h3>
+                  <p className="examples-subtitle">Click any example to auto-fill the form</p>
                 </div>
               </div>
-            </Card.Body>
-          </Card>
-        )} */}
-      </Col>
-    </Row>
+
+              <div className="examples-list">
+                {attackExamples.map((example, index) => (
+                  <button
+                    key={index}
+                    onClick={() => {
+                      setUsername(example);
+                      setPassword('anything');
+                    }}
+                    className="example-button"
+                  >
+                    <code className="example-code">{example}</code>
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                ))}
+              </div>
+
+              <div className="info-tip">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <p className="tip-title">How it works:</p>
+                  <p className="tip-description">
+                    These payloads manipulate the SQL query structure, potentially bypassing authentication 
+                    or revealing sensitive data from the database.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
 

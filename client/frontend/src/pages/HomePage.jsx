@@ -1,35 +1,87 @@
-import { Card, Button, Row, Col } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
+import './HomePage.css';
 
 function HomePage({ user }) {
   return (
-    <Row className="justify-content-center align-items-center" style={{ minHeight: '80vh' }}>
-      <Col md={10} lg={8}>
-        <Card className="bank-card text-center p-4">
-          <Card.Body>
-            <h1 className="mb-3" style={{ color: 'var(--primary-color)', fontWeight: 700 }}>
-              <i className="fas fa-university me-2"></i>Welcome to SecureBank
-            </h1>
-            <h4 className="mb-4" style={{ color: 'var(--primary-dark)' }}>
-              The modern, educational banking platform for learning about <span style={{ color: 'var(--accent-color)' }}>SQL Injection</span> attacks and defenses.
-            </h4>
-            <p className="mb-4" style={{ fontSize: '1.2rem', color: 'var(--text-secondary)' }}>
-              Explore a real-world inspired banking system, toggle between secure and hackable modes, and see the impact of security best practices in action.
-            </p>
-            <div className="d-flex justify-content-center gap-3 flex-wrap">
-              {!user && (
-                <Button as={Link} to="/register" className="btn-primary btn-lg">
-                  <i className="fas fa-user-plus me-2"></i>Get Started
-                </Button>
-              )}
-              <Button as={Link} to="/attack-lab" className="btn-outline-primary btn-lg">
-                <i className="fas fa-bug me-2"></i>Try Attack Lab
-              </Button>
-            </div>
-          </Card.Body>
-        </Card>
-      </Col>
-    </Row>
+    <div className="homepage">
+      <div className="container">
+        
+        {/* Hero Section */}
+        <div className="hero">
+          <div className="hero-icon">
+            🏦
+          </div>
+          
+          <h1>SecureBank</h1>
+          
+          <h2>
+            Learn about <span className="highlight">SQL Injection</span> attacks and defenses
+          </h2>
+          
+          <p>
+            Practice cybersecurity in a safe environment. Toggle between secure and vulnerable modes 
+            to understand how attacks work and how to prevent them.
+          </p>
+        </div>
+
+        {/* Feature Cards */}
+        <div className="features">
+          <div className="card">
+            <div className="card-icon secure">🛡️</div>
+            <h3>Secure Mode</h3>
+            <p>See how proper security protects against SQL injection attacks.</p>
+          </div>
+
+          <div className="card">
+            <div className="card-icon vulnerable">⚠️</div>
+            <h3>Vulnerable Mode</h3>
+            <p>Learn by trying real SQL injection attacks in a safe environment.</p>
+          </div>
+
+          <div className="card">
+            <div className="card-icon lab">⚡</div>
+            <h3>Attack Lab</h3>
+            <p>Practice ethical hacking with guided tutorials and scenarios.</p>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="actions">
+          {!user && (
+            <Link to="/register" className="btn primary">
+              Get Started
+            </Link>
+          )}
+          
+          <Link to="/attack-lab" className="btn secondary">
+            Try Attack Lab
+          </Link>
+        </div>
+
+        {/* Stats */}
+        <div className="stats">
+          <div className="stat">
+            <div className="number">100%</div>
+            <div className="label">Safe Learning</div>
+          </div>
+          
+          <div className="stat">
+            <div className="number">10+</div>
+            <div className="label">Attack Scenarios</div>
+          </div>
+          
+          <div className="stat">
+            <div className="number">Real-time</div>
+            <div className="label">Security Feedback</div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="footer">
+          <p>⚠️ Educational purposes only - Practice ethical hacking responsibly</p>
+        </div>
+      </div>
+    </div>
   );
 }
 
