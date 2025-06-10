@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Card, Form, Button, Row, Col } from 'react-bootstrap';
+import { Card, Form, Button, Row, Col, Alert } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const RegisterPage = ({ addAlert }) => {
+const RegisterPage = ({ addAlert, secureMode }) => {
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -20,7 +20,7 @@ const RegisterPage = ({ addAlert }) => {
       const res = await fetch('http://localhost:3001/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, secureMode: true })
+        body: JSON.stringify({ ...formData, secureMode })
       });
       const data = await res.json();
       if (res.ok) {
@@ -46,7 +46,7 @@ const RegisterPage = ({ addAlert }) => {
         <Card className="bank-card">
           <Card.Body>
             <h3 className="mb-4 text-center" style={{ color: 'var(--primary-color)' }}>
-              <i className="fas fa-user-plus me-2"></i>Create Your Account
+              <i className="fas fa-user-plus me-2"></i>{secureMode ? 'Secure Registration' : 'Hackable Registration'}
             </h3>
             <Form onSubmit={handleSubmit} autoComplete="off">
               <Form.Group className="mb-3">
@@ -102,6 +102,24 @@ const RegisterPage = ({ addAlert }) => {
             </div>
           </Card.Body>
         </Card>
+      </Col>
+      <Col md={5} className="d-flex align-items-center">
+        <Alert
+          variant={secureMode ? 'info' : 'danger'}
+          style={{ background: 'var(--accent-light)', color: '#fff', width: '100%' }}
+        >
+          {secureMode ? (
+            <>
+              <strong>Defense Mechanisms:</strong> <br />
+              Registration uses <b>parameterized queries</b> and <b>input validation</b> to prevent SQL injection and ensure data integrity.
+            </>
+          ) : (
+            <>
+              <strong>Vulnerability:</strong> <br />
+              Registration is <b>vulnerable to SQL injection</b> due to direct SQL concatenation. Try using SQL injection payloads in the username or email fields!
+            </>
+          )}
+        </Alert>
       </Col>
     </Row>
   );

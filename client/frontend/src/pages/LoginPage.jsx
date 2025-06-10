@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card, Form, Button, Row, Col } from 'react-bootstrap';
+import { Card, Form, Button, Row, Col, Alert } from 'react-bootstrap';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import ListGroup from 'react-bootstrap/ListGroup';
@@ -56,7 +56,7 @@ const LoginPage = ({ secureMode, addAlert, setUser }) => {
         <Card className="bank-card">
           <Card.Body>
             <h3 className="mb-4 text-center" style={{ color: 'var(--primary-color)' }}>
-              <i className="fas fa-sign-in-alt me-2"></i>Login to SecureBank
+              <i className="fas fa-sign-in-alt me-2"></i>{secureMode ? 'Secure Login' : 'Hackable Login'}
             </h3>
             <Form onSubmit={handleSubmit} autoComplete="off">
               <Form.Group className="mb-3">
@@ -88,6 +88,26 @@ const LoginPage = ({ secureMode, addAlert, setUser }) => {
             </Form>
           </Card.Body>
         </Card>
+      </Col>
+      <Col md={5} className="d-flex align-items-center">
+        <Alert
+          variant={secureMode ? 'info' : 'danger'}
+          style={{ background: 'var(--accent-light)', color: '#fff', width: '100%' }}
+        >
+          {secureMode ? (
+            <>
+              <strong>Defense Mechanism:</strong> <br />
+              This login uses <b>parameterized queries</b> (prepared statements) to prevent SQL injection. User input is never directly concatenated into SQL queries.
+            </>
+          ) : (
+            <>
+              <strong>Vulnerability:</strong> <br />
+              This login is <b>vulnerable to SQL injection</b>!<br />
+              Try logging in with:<br />
+              <code>Username: anything<br />Password: ' OR '1'='1</code>
+            </>
+          )}
+        </Alert>
       </Col>
 
       <Col lg={6}>

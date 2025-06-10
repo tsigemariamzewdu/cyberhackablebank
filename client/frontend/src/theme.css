@@ -1,24 +1,33 @@
 :root {
-  /* Brand Colors */
-  --primary-color: #ff8800;
-  --primary-light: #ffa940;
-  --primary-dark: #cc6e00;
-  --accent-color: #ff8800;
-  --accent-light: #ffa940;
-  --accent-dark: #cc6e00;
-  
-  /* Neutral Colors */
-  --background-color: #fff8f1;
-  --surface-color: #ffffff;
+  /* Secure Mode (Light Pastel Orange) */
+  --primary-color: #ffb347;
+  --primary-light: #ffd580;
+  --primary-dark: #e6a04b;
+  --accent-color: #ffb347;
+  --accent-light: #ffe0b3;
+  --accent-dark: #e6a04b;
+  --background-color: #fffaf3;
+  --surface-color: #fff8ec;
   --text-primary: #2c2c2c;
   --text-secondary: #7f8c8d;
   --border-color: #ffe0b3;
-  
-  /* Status Colors */
-  --success-color: #2ecc71;
-  --warning-color: #f1c40f;
-  --error-color: #e74c3c;
-  --info-color: #ff8800;
+  --info-color: #ffb347;
+}
+
+body.hackable-mode {
+  /* Hackable Mode (Light Pastel Red/Coral) */
+  --primary-color: #ff7f7f;
+  --primary-light: #ffb3b3;
+  --primary-dark: #e67373;
+  --accent-color: #ff7f7f;
+  --accent-light: #ffeaea;
+  --accent-dark: #e67373;
+  --background-color: #fff6f6;
+  --surface-color: #fff0f0;
+  --text-primary: #2c2c2c;
+  --text-secondary: #7f8c8d;
+  --border-color: #ffd6d0;
+  --info-color: #ff7f7f;
 }
 
 /* Global Styles */

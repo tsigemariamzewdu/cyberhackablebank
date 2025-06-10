@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Card, Form, Button, Row, Col } from 'react-bootstrap';
+import { Card, Form, Button, Row, Col, Alert } from 'react-bootstrap';
 
-function TransferPage({ user }) {
+function TransferPage({ user, secureMode }) {
   const [toUser, setToUser] = useState('');
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,7 +17,7 @@ function TransferPage({ user }) {
       const res = await fetch('http://localhost:3001/api/transfer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fromUser: user.username, toUser, amount: parseFloat(amount), secureMode: true })
+        body: JSON.stringify({ fromUser: user.username, toUser, amount: parseFloat(amount), secureMode })
       });
       const data = await res.json();
       if (res.ok) {
@@ -38,7 +38,7 @@ function TransferPage({ user }) {
         <Card className="bank-card">
           <Card.Body>
             <h3 className="mb-4 text-center" style={{ color: 'var(--primary-color)' }}>
-              <i className="fas fa-exchange-alt me-2"></i>Money Transfer
+              <i className="fas fa-exchange-alt me-2"></i>{secureMode ? 'Secure Money Transfer' : 'Hackable Money Transfer'}
             </h3>
             <Form onSubmit={handleTransfer} autoComplete="off">
               <Form.Group className="mb-3">
@@ -69,6 +69,25 @@ function TransferPage({ user }) {
             {error && <div className="mt-3 text-danger text-center">{error}</div>}
           </Card.Body>
         </Card>
+      </Col>
+      <Col md={5} className="d-flex align-items-center">
+        <Alert
+          variant={secureMode ? 'info' : 'danger'}
+          style={{ background: 'var(--accent-light)', color: '#fff', width: '100%' }}
+        >
+          {secureMode ? (
+            <>
+              <strong>Defense Mechanisms:</strong> <br />
+              Transfers use <b>parameterized queries</b> and <b>transaction safety</b> to prevent SQL injection and ensure atomicity.
+            </>
+          ) : (
+            <>
+              <strong>Vulnerability:</strong> <br />
+              This transfer is <b>vulnerable to SQL injection</b> and <b>second-order injection</b>! Try SQLi in the recipient field.<br />
+              <code>Recipient: ed'; UPDATE users SET balance = 10000 WHERE username = 'youruser' --</code>
+            </>
+          )}
+        </Alert>
       </Col>
     </Row>
   );

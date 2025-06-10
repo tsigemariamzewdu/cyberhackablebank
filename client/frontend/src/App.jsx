@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, Link } from 'react-router-dom';
 import { Container, Nav, Navbar, Alert, Form, Button } from 'react-bootstrap';
 import HomePage from './pages/HomePage';
@@ -13,9 +13,18 @@ import './theme.css';
 import './App.css';
 
 function App() {
-  const [secureMode, setSecureMode] = useState(false);
+  const [secureMode, setSecureMode] = useState(true);
   const [alerts, setAlerts] = useState([]);
   const [user, setUser] = useState(null);
+
+  // Dynamically set body class for theme
+  useEffect(() => {
+    if (secureMode) {
+      document.body.classList.remove('hackable-mode');
+    } else {
+      document.body.classList.add('hackable-mode');
+    }
+  }, [secureMode]);
 
   const addAlert = (message, variant = 'info') => {
     const id = Date.now();
@@ -35,8 +44,11 @@ function App() {
       <Navbar bg="dark" variant="dark" expand="lg" className="navbar-fullwidth">
         <Container fluid>
           <Navbar.Brand as={Link} to="/">
-            <i className="fas fa-university me-2"></i>
-            SecureBank
+            <i
+              className="fas fa-university me-2"
+              style={{ color: 'var(--primary-color)' }}
+            ></i>
+            {secureMode ? 'SecureBank' : 'Hackable Bank'}
           </Navbar.Brand>
           <Navbar.Toggle aria-controls="basic-navbar-nav" />
           <Navbar.Collapse id="basic-navbar-nav">
@@ -137,7 +149,7 @@ function App() {
         ))}
 
         <Routes>
-          <Route path="/" element={<HomePage user={user} />} />
+          <Route path="/" element={<HomePage user={user} secureMode={secureMode} />} />
           <Route
             path="/login"
             element={
@@ -151,26 +163,26 @@ function App() {
           <Route
             path="/register"
             element={
-              user ? <Navigate to="/dashboard" /> : <RegisterPage addAlert={addAlert} />
+              user ? <Navigate to="/dashboard" /> : <RegisterPage addAlert={addAlert} secureMode={secureMode} />
             }
           />
           <Route
             path="/dashboard"
             element={
-              user ? <DashboardPage user={user} /> : <Navigate to="/login" />
+              user ? <DashboardPage user={user} secureMode={secureMode} /> : <Navigate to="/login" />
             }
           />
           <Route
             path="/account"
-            element={user ? <AccountPage user={user} /> : <Navigate to="/login" />}
+            element={user ? <AccountPage user={user} secureMode={secureMode} /> : <Navigate to="/login" />}
           />
           <Route
             path="/transfer"
-            element={user ? <TransferPage user={user} /> : <Navigate to="/login" />}
+            element={user ? <TransferPage user={user} secureMode={secureMode} /> : <Navigate to="/login" />}
           />
           <Route
             path="/admin"
-            element={user?.role === 'admin' ? <AdminPage /> : <Navigate to="/" />}
+            element={user?.role === 'admin' ? <AdminPage secureMode={secureMode} /> : <Navigate to="/" />}
           />
           <Route
             path="/attack-lab"

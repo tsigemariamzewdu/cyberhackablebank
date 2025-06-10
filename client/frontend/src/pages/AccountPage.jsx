@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Card, Form, Button, Row, Col, Table } from 'react-bootstrap';
+import { Card, Form, Button, Row, Col, Table, Alert } from 'react-bootstrap';
 
-function AccountPage({ user }) {
+function AccountPage({ user, secureMode }) {
   const [lookupUser, setLookupUser] = useState('');
   const [account, setAccount] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -13,7 +13,7 @@ function AccountPage({ user }) {
     setError(null);
     setAccount(null);
     try {
-      const res = await fetch(`http://localhost:3001/api/accounts/${lookupUser}?secureMode=true`);
+      const res = await fetch(`http://localhost:3001/api/accounts/${lookupUser}?secureMode=${secureMode}`);
       const data = await res.json();
       if (res.ok) {
         setAccount(data);
@@ -33,7 +33,7 @@ function AccountPage({ user }) {
         <Card className="bank-card">
           <Card.Body>
             <h3 className="mb-4 text-center" style={{ color: 'var(--primary-color)' }}>
-              <i className="fas fa-search me-2"></i>Account Lookup
+              <i className="fas fa-search me-2"></i>{secureMode ? 'Secure Account Lookup' : 'Hackable Account Lookup'}
             </h3>
             <Form onSubmit={handleLookup} autoComplete="off">
               <Form.Group className="mb-4">
@@ -66,6 +66,25 @@ function AccountPage({ user }) {
             )}
           </Card.Body>
         </Card>
+      </Col>
+      <Col md={5} className="d-flex align-items-center">
+        <Alert
+          variant={secureMode ? 'info' : 'danger'}
+          style={{ background: 'var(--accent-light)', color: '#fff', width: '100%' }}
+        >
+          {secureMode ? (
+            <>
+              <strong>Defense Mechanism:</strong> <br />
+              Account lookup uses <b>parameterized queries</b> to prevent SQL injection and UNION-based attacks.
+            </>
+          ) : (
+            <>
+              <strong>Vulnerability:</strong> <br />
+              This lookup is <b>vulnerable to SQL injection</b>! Try a UNION-based attack:<br />
+              <code>Username: ' UNION SELECT username, password, balance, role, email, full_name, created_at, 1 FROM users --</code>
+            </>
+          )}
+        </Alert>
       </Col>
     </Row>
   );

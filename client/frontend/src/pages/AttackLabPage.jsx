@@ -87,15 +87,28 @@ function AttackLabPage({ secureMode }) {
   return (
     <Row className="justify-content-center align-items-center" style={{ minHeight: '70vh' }}>
       <Col md={10} lg={8}>
+        <Alert
+          variant={secureMode ? 'info' : 'danger'}
+          style={{ background: 'var(--accent-light)', color: '#fff', width: '100%' }}
+          className="mb-4"
+        >
+          {secureMode ? (
+            <>
+              <strong>Defense Mechanisms:</strong> <br />
+              All endpoints in this lab are protected with <b>parameterized queries</b> and input validation. SQL injection attacks will be blocked.
+            </>
+          ) : (
+            <>
+              <strong>Vulnerability:</strong> <br />
+              All endpoints in this lab are <b>vulnerable to SQL injection</b>. Try authentication bypass, UNION-based, blind, and second-order attacks!
+            </>
+          )}
+        </Alert>
         <Card className="bank-card">
           <Card.Body>
             <h3 className="mb-4 text-center" style={{ color: 'var(--primary-color)' }}>
               <i className="fas fa-bug me-2"></i>SQL Injection Attack Lab
             </h3>
-            <Alert variant="warning">
-              This is a controlled environment for learning about SQL injection attacks.
-              {secureMode ? ' Secure mode is enabled - attacks will be blocked.' : ' Insecure mode is enabled - attacks may succeed.'}
-            </Alert>
             <Tabs
               activeKey={attackType}
               onSelect={(k) => setAttackType(k)}
