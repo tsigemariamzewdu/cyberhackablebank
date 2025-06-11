@@ -13,7 +13,7 @@ app.use(bodyParser.json());
 app.use(morgan('dev'));
 
 // MongoDB connection
-mongoose.connect('mongodb://localhost:27017/hackable-bank', {
+mongoose.connect('mongodb://127.0.0.1:27017/hackable-bank', {
   useNewUrlParser: true,
   useUnifiedTopology: true
 }).then(() => {
@@ -113,16 +113,49 @@ app.post('/api/login', async (req, res) => {
       res.json({ message: 'Login successful', user: { id: user._id, username: user.username, balance: user.balance, role: user.role } });
     } else {
       // Vulnerable login - using string concatenation for demo
-      const query = `db.users.findOne({
-        username: "${username}",
-        password: "${password}"
-      })`;
+      // This simulates a vulnerable SQL query that would be used in a SQL database
+      const query = `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`;
+      console.log('Vulnerable query:', query);
       
-      const user = await User.findOne({ username, password });
-      if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-      res.json({ message: 'Login successful', user: { id: user._id, username: user.username, balance: user.balance, role: user.role } });
+      // For vulnerable mode, we'll use a very permissive query
+      // This simulates a SQL injection vulnerability
+      let user;
+      
+      // Handle SQL injection style payloads
+      if (username.includes("'") || username.includes("--")) {
+        // If username contains SQL injection characters, just find by username
+        user = await User.findOne({ username: username.split("'")[0] });
+      } else {
+        // Normal case - try to find by username
+        user = await User.findOne({
+          $or: [
+            { username: username },
+            { username: { $regex: new RegExp(username, 'i') } }
+          ]
+        });
+      }
+      
+      if (!user) {
+        console.log('No user found for username:', username);
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+      
+      // In vulnerable mode, we'll bypass the password check
+      // This simulates a successful SQL injection
+      console.log('Found user:', user.username);
+      
+      res.json({ 
+        message: 'Login successful', 
+        user: { 
+          id: user._id, 
+          username: user.username, 
+          balance: user.balance, 
+          role: user.role 
+        } 
+      });
     }
   } catch (err) {
+    console.error('Login error:', err);
     res.status(500).json({ error: err.message });
   }
 });
