@@ -7,7 +7,7 @@ const RegisterPage = ({ addAlert, secureMode }) => {
     username: '',
     password: '',
     email: '',
-    fullName: ''
+    full_name: ''
   });
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();

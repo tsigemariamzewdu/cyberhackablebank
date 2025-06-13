@@ -156,12 +156,13 @@ app.get('/api/accounts/:username', async (req, res) => {
       const query = `SELECT * FROM users WHERE username = '${username}'`;
       console.log('⚠️ Executing vulnerable query:', query);
       const [result] = await conn.query(query);
+      console.log(result[0])
       if (!result || result.length === 0) {
         conn.release();
         return res.status(404).json({ error: 'Account not found' });
       }
       conn.release();
-      res.json(result.length === 1 ? result[0] : result);
+      res.json(result);
     }
   } catch (err) {
     res.status(500).json({ error: err.message });

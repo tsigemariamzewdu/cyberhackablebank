@@ -7,10 +7,18 @@ function AccountPage({ user, secureMode }) {
   const [error, setError] = useState(null);
 
   const attackExamples = [
-    "' UNION SELECT username, password, balance, role, email, full_name, created_at, 1 FROM users --",
-    "' OR 1=1 --",
-    "' OR 'a'='a",
-    "' OR EXISTS(SELECT 1) --"
+    { 
+      payload: "' UNION SELECT id, username, password, balance, role, email, full_name, created_at FROM users --", 
+      description: "Full database dump with correct field order" 
+    },
+    { 
+      payload: "' OR 1=1 --", 
+      description: "Return all accounts" 
+    },
+    { 
+      payload: "admin' --", 
+      description: "Bypass authentication" 
+    }
   ];
 
   const handleLookup = async (e) => {
@@ -31,6 +39,16 @@ function AccountPage({ user, secureMode }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fillExample = (payload) => {
+    setLookupUser(payload);
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleString();
   };
 
   return (
@@ -140,34 +158,103 @@ function AccountPage({ user, secureMode }) {
               background: '#fff5f5', 
               borderRadius: '4px'
             }}>{error}</div>}
+            
+            {/* Account Display Area */}
             {account && (
-              <div className="account-table-container" style={{ marginTop: '20px' }}>
-                <table className="account-table" style={{ 
-                  width: '100%', 
-                  borderCollapse: 'collapse'
-                }}>
-                  <tbody>
-                    <tr style={{ borderBottom: '1px solid #eee' }}>
-                      <th style={{ 
-                        padding: '10px', 
-                        textAlign: 'left', 
-                        width: '30%'
-                      }}>Username</th>
-                      <td style={{ padding: '10px' }}>{account.username}</td>
-                    </tr>
-                    <tr>
-                      <th style={{ 
-                        padding: '10px', 
-                        textAlign: 'left'
-                      }}>Balance</th>
-                     <td style={{ padding: '10px' }}>${parseFloat(account.balance || 0).toFixed(2)}</td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div className="account-results" style={{ marginTop: '20px' }}>
+                {Array.isArray(account) ? (
+                  // Display multiple accounts (SQL injection result)
+                  <div className="injection-results">
+                    <div className="injection-warning" style={{
+                      backgroundColor: '#fff5f5',
+                      borderLeft: '4px solid #e53e3e',
+                      padding: '15px',
+                      marginBottom: '20px'
+                    }}>
+                      <h4 style={{ color: '#e53e3e', marginTop: 0 }}>
+                        ⚠️ SQL Injection Successful - Showing {account.length} Records
+                      </h4>
+                      <p>This demonstrates how SQL injection can expose sensitive data</p>
+                    </div>
+                    {account.map((acc, index) => (
+                      <div key={index} style={{ 
+                        marginBottom: '20px',
+                        border: '1px solid #eee',
+                        borderRadius: '8px',
+                        padding: '15px'
+                      }}>
+                        <h5 style={{ marginBottom: '10px' }}>Account #{index + 1}</h5>
+                        <table className="account-table" style={{ 
+                          width: '100%', 
+                          borderCollapse: 'collapse'
+                        }}>
+                          <tbody>
+                            <tr>
+                              <th style={{ padding: '10px', textAlign: 'left', width: '30%' }}>ID</th>
+                              <td style={{ padding: '10px' }}>{acc.id || 'N/A'}</td>
+                            </tr>
+                            <tr>
+                              <th style={{ padding: '10px', textAlign: 'left', width: '30%' }}>Username</th>
+                              <td style={{ padding: '10px' }}>{acc.username || 'N/A'}</td>
+                            </tr>
+                            <tr>
+                              <th style={{ padding: '10px', textAlign: 'left', width: '30%' }}>Password Hash</th>
+                              <td style={{ padding: '10px', color: '#e53e3e', fontWeight: 'bold' }}>
+                                {acc.password ? `${acc.password.substring(0, 20)}...` : 'N/A'} (⚠️ exposed)
+                              </td>
+                            </tr>
+                            <tr>
+                              <th style={{ padding: '10px', textAlign: 'left', width: '30%' }}>Balance</th>
+                              <td style={{ padding: '10px' }}>
+                                {acc.balance ? `$${parseFloat(acc.balance).toFixed(2)}` : 'N/A'}
+                              </td>
+                            </tr>
+                            <tr>
+                              <th style={{ padding: '10px', textAlign: 'left', width: '30%' }}>Role</th>
+                              <td style={{ padding: '10px' }}>{acc.role || 'N/A'}</td>
+                            </tr>
+                            <tr>
+                              <th style={{ padding: '10px', textAlign: 'left', width: '30%' }}>Email</th>
+                              <td style={{ padding: '10px' }}>{acc.email || 'N/A'}</td>
+                            </tr>
+                            <tr>
+                              <th style={{ padding: '10px', textAlign: 'left', width: '30%' }}>Full Name</th>
+                              <td style={{ padding: '10px' }}>{acc.full_name || 'N/A'}</td>
+                            </tr>
+                            <tr>
+                              <th style={{ padding: '10px', textAlign: 'left', width: '30%' }}>Created At</th>
+                              <td style={{ padding: '10px' }}>{formatDate(acc.created_at)}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  // Display single account (normal lookup)
+                  <table className="account-table" style={{ 
+                    width: '100%', 
+                    borderCollapse: 'collapse'
+                  }}>
+                    <tbody>
+                      <tr style={{ borderBottom: '1px solid #eee' }}>
+                        <th style={{ padding: '10px', textAlign: 'left', width: '30%' }}>Username</th>
+                        <td style={{ padding: '10px' }}>{account.username}</td>
+                      </tr>
+                      <tr>
+                        <th style={{ padding: '10px', textAlign: 'left' }}>Balance</th>
+                        <td style={{ padding: '10px' }}>
+                          ${parseFloat(account.balance || 0).toFixed(2)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                )}
               </div>
             )}
           </div>
         </div>
+
         {/* Information Panel */}
         <div className="info-panel">
           <div className={`security-card ${secureMode ? 'secure' : 'vulnerable'}`} style={{ 
@@ -191,15 +278,17 @@ function AccountPage({ user, secureMode }) {
                 background: secureMode ? '#f0fff4' : '#fff5f5', 
                 borderRadius: '50%',
                 flexShrink: '0'
-              }}>{secureMode ? (
-                <svg width="20" height="20" fill="none" stroke="#38a169" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              ) : (
-                <svg width="20" height="20" fill="none" stroke="#e53e3e" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-              )}</div>
+              }}>
+                {secureMode ? (
+                  <svg width="20" height="20" fill="none" stroke="#38a169" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                ) : (
+                  <svg width="20" height="20" fill="none" stroke="#e53e3e" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                )}
+              </div>
               <div>
                 <h3 className="security-title" style={{ 
                   fontSize: '1.2rem', 
@@ -222,6 +311,7 @@ function AccountPage({ user, secureMode }) {
               </div>
             </div>
           </div>
+
           {/* Attack Examples */}
           {!secureMode && (
             <div className="examples-card" style={{ 
@@ -271,7 +361,7 @@ function AccountPage({ user, secureMode }) {
                 {attackExamples.map((example, index) => (
                   <button
                     key={index}
-                    onClick={() => setLookupUser(example)}
+                    onClick={() => fillExample(example.payload)}
                     style={{ 
                       display: 'flex', 
                       alignItems: 'center', 
@@ -285,13 +375,18 @@ function AccountPage({ user, secureMode }) {
                       width: '100%'
                     }}
                   >
-                    <code style={{ 
-                      fontSize: '0.8rem', 
-                      color: '#4a5568', 
-                      whiteSpace: 'nowrap', 
-                      overflow: 'hidden', 
-                      textOverflow: 'ellipsis'
-                    }}>{example}</code>
+                    <div>
+                      <code style={{ 
+                        fontSize: '0.8rem', 
+                        color: '#4a5568', 
+                        display: 'block',
+                        marginBottom: '4px'
+                      }}>{example.payload}</code>
+                      <small style={{ 
+                        color: '#718096',
+                        fontSize: '0.75rem'
+                      }}>{example.description}</small>
+                    </div>
                     <svg width="16" height="16" fill="none" stroke="#718096" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>

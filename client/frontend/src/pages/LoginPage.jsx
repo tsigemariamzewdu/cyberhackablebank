@@ -13,7 +13,7 @@ const LoginPage = ({ secureMode, addAlert, setUser }) => {
     "admin' -- ",
     "' OR '1'='1",
     "' OR 1=1 --",
-    "admin' /*"
+   
   ]);
 
   const handleSubmit = async (e) => {
