@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Table, Button, Badge } from 'react-bootstrap';
 import { 
   FiDownload, 
@@ -18,41 +18,86 @@ import { motion } from 'framer-motion';
 
 function DashboardPage({ user }) {
   const [stats, setStats] = useState({
-    balance: 12450.75,
-    transactions: [
-      {
-        id: 1,
-        date: 'Jan 15, 2024',
-        description: 'Transfer from joint_doe',
-        type: 'Deposit',
-        amount: 250.00,
-        status: 'Completed'
-      },
-      {
-        id: 2,
-        date: 'Jan 14, 2024',
-        description: 'Transfer to jane_smith',
-        type: 'Withdrawal',
-        amount: -75.50,
-        status: 'Completed'
-      },
-      {
-        id: 3,
-        date: 'Jan 13, 2024',
-        description: 'Transfer from mike_wilson',
-        type: 'Deposit',
-        amount: 500.00,
-        status: 'Completed'
-      }
-    ],
+    balance: 0,
+    transactions: [],
     accountStatus: 'Active'
   });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchUserData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Fetch user account info
+      const accountResponse = await fetch(`http://localhost:3001/api/accounts/${user.username}?secureMode=true`);
+      if (!accountResponse.ok) throw new Error('Failed to fetch account info');
+      const accountData = await accountResponse.json();
+      
+      // Fetch user transactions
+      const transactionsResponse = await fetch(`http://localhost:3001/api/transactions/${user.username}?secureMode=true`);
+      if (!transactionsResponse.ok) throw new Error('Failed to fetch transactions');
+      const transactionsData = await transactionsResponse.json();
+      
+      setStats({
+        balance: accountData.balance || 0,
+        transactions: transactionsData.map(t => ({
+          id: t._id,
+          date: new Date(t.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          description: `Transfer ${t.fromUser === user.username ? 'to' : 'from'} ${t.fromUser === user.username ? t.toUser : t.fromUser}`,
+          type: t.fromUser === user.username ? 'Withdrawal' : 'Deposit',
+          amount: t.fromUser === user.username ? -t.amount : t.amount,
+          status: 'Completed'
+        })),
+        accountStatus: 'Active'
+      });
+    } catch (err) {
+      setError(err.message);
+      console.error('Error fetching user data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.username) {
+      fetchUserData();
+    }
+  }, [user]);
 
   // Animation variants
   const cardVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0 }
   };
+
+  if (loading) {
+    return (
+      <Container fluid className="px-5 py-5 dashboard-container">
+        <div className="text-center">
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+          <p className="mt-3">Loading your dashboard...</p>
+        </div>
+      </Container>
+    );
+  }
+
+  if (error) {
+    return (
+      <Container fluid className="px-5 py-5 dashboard-container">
+        <div className="alert alert-danger" role="alert">
+          <h4 className="alert-heading">Error!</h4>
+          <p>{error}</p>
+          <Button variant="outline-danger" onClick={fetchUserData}>
+            <FiRefreshCw className="me-2" /> Try Again
+          </Button>
+        </div>
+      </Container>
+    );
+  }
 
   return (
     <Container fluid className="px-5 py-5 dashboard-container">
@@ -81,7 +126,7 @@ function DashboardPage({ user }) {
                   </div>
                   <h6 className="text-uppercase text-secondary mb-0 fw-semibold">Balance</h6>
                 </div>
-                <h2 className="fw-bold mb-3">${stats.balance.toFixed(2)}</h2>
+              <h2 className="fw-bold mb-3">${parseFloat(stats.balance || 0).toFixed(2)}</h2>
                 <p className="text-success fw-semibold fs-6 mb-0">
                   <Badge bg="success" className="me-2 fs-6 py-1 px-3 shadow-sm">+2.5%</Badge> from last month
                 </p>

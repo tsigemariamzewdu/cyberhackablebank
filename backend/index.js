@@ -1,185 +1,170 @@
 const express = require('express');
-const bodyParser = require('body-parser');
 const cors = require('cors');
-const morgan = require('morgan');
-const mongoose = require('mongoose');
+const mysql = require('mysql2/promise');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
 const app = express();
-const PORT = 3001;
-
-// Middleware
 app.use(cors());
-app.use(bodyParser.json());
-app.use(morgan('dev'));
+app.use(express.json());
 
-// MongoDB connection
-mongoose.connect('mongodb://127.0.0.1:27017/hackable-bank', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-}).then(() => {
-  console.log('Connected to MongoDB');
-}).catch(err => {
-  console.error('MongoDB connection error:', err);
+// MySQL connection for MAMP
+const pool = mysql.createPool({
+  host: '127.0.0.1',
+  user: 'root',
+  password: 'root',
+  database: 'hackable_bank',
+  port: 3306, // MAMP's default MySQL port
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
 });
 
-// User Schema
-const userSchema = new mongoose.Schema({
-  username: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  balance: { type: Number, default: 0 },
-  role: { type: String, default: 'user' },
-  fullName: String,
-  email: String,
-  createdAt: { type: Date, default: Date.now }
-});
-
-// Transaction Schema
-const transactionSchema = new mongoose.Schema({
-  fromUser: { type: String, required: true },
-  toUser: { type: String, required: true },
-  amount: { type: Number, required: true },
-  timestamp: { type: Date, default: Date.now }
-});
-
-const User = mongoose.model('User', userSchema);
-const Transaction = mongoose.model('Transaction', transactionSchema);
-
-// Initialize admin user
-async function initializeAdmin() {
+// Initialize database tables
+async function initializeDatabase() {
   try {
-    const adminExists = await User.findOne({ username: 'admin' });
-    if (!adminExists) {
-      await User.create({
-        username: 'admin',
-        password: 'admin123',
-        balance: 10000,
-        role: 'admin'
-      });
-      console.log('Admin user created');
+    const conn = await pool.getConnection();
+    console.log("✅ Connected to MySQL via MAMP");
+
+    // Create users table
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(50) UNIQUE NOT NULL,
+        password VARCHAR(100) NOT NULL,
+        balance DECIMAL(10,2) DEFAULT 0,
+        role VARCHAR(20) DEFAULT 'user',
+        email VARCHAR(100),
+        full_name VARCHAR(100),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create transactions table
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS transactions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        from_user VARCHAR(50) NOT NULL,
+        to_user VARCHAR(50) NOT NULL,
+        amount DECIMAL(10,2) NOT NULL,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create admin user if not exists
+    const [adminCheck] = await conn.query('SELECT * FROM users WHERE username = ?', ['admin']);
+    if (adminCheck.length === 0) {
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+      await conn.query(
+        'INSERT INTO users (username, password, balance, role) VALUES (?, ?, ?, ?)',
+        ['admin', hashedPassword, 10000, 'admin']
+      );
+      console.log('👑 Admin user created');
     }
+    conn.release();
   } catch (err) {
-    console.error('Error creating admin:', err);
+    console.error('❌ Database initialization failed:', err);
   }
 }
 
-initializeAdmin();
+initializeDatabase();
+// ... existing code ...
 
 // Registration endpoint
 app.post('/api/register', async (req, res) => {
-  const { username, password, email, fullName, secureMode } = req.body;
-  
+  const { username, password, email, full_name } = req.body;
   try {
-    if (secureMode) {
-      // Secure registration
-      const user = await User.create({
-        username,
-        password,
-        email,
-        fullName
-      });
-      res.json({ message: 'Registration successful' });
-    } else {
-      // Vulnerable registration - using string concatenation for demo
-      const query = `db.users.insertOne({
-        username: "${username}",
-        password: "${password}",
-        email: "${email}",
-        fullName: "${fullName}"
-      })`;
-      
-      // Execute the vulnerable query
-      await User.create({
-        username,
-        password,
-        email,
-        fullName
-      });
-      res.json({ message: 'Registration successful' });
+    const conn = await pool.getConnection();
+    // Check if username already exists
+    const [existing] = await conn.query('SELECT 1 FROM users WHERE username = ?', [username]);
+    if (existing.length > 0) {
+      conn.release();
+      return res.status(400).json({ error: 'Username already taken' });
     }
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    // Insert new user
+    await conn.query(
+      'INSERT INTO users (username, password, email, full_name) VALUES (?, ?, ?, ?)',
+      [username, hashedPassword, email, full_name]
+    );
+    conn.release();
+    res.json({ message: 'Registration successful' });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
+
+
+// ... existing code ...
 
 // Login endpoint
 app.post('/api/login', async (req, res) => {
   const { username, password, secureMode } = req.body;
-  
   try {
-    if (secureMode) {
-      // Secure login
-      const user = await User.findOne({ username, password });
-      if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-      res.json({ message: 'Login successful', user: { id: user._id, username: user.username, balance: user.balance, role: user.role } });
-    } else {
-      // Vulnerable login - using string concatenation for demo
-      // This simulates a vulnerable SQL query that would be used in a SQL database
-      const query = `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`;
-      console.log('Vulnerable query:', query);
-      
-      // For vulnerable mode, we'll use a very permissive query
-      // This simulates a SQL injection vulnerability
-      let user;
-      
-      // Handle SQL injection style payloads
-      if (username.includes("'") || username.includes("--")) {
-        // If username contains SQL injection characters, just find by username
-        user = await User.findOne({ username: username.split("'")[0] });
-      } else {
-        // Normal case - try to find by username
-        user = await User.findOne({
-          $or: [
-            { username: username },
-            { username: { $regex: new RegExp(username, 'i') } }
-          ]
-        });
-      }
-      
-      if (!user) {
-        console.log('No user found for username:', username);
+    const conn = await pool.getConnection();
+    if (secureMode === 'true') {
+      // Secure version
+      const [result] = await conn.query('SELECT * FROM users WHERE username = ?', [username]);
+      const user = result[0];
+      console.log('User from DB:', user);
+      console.log('Password from DB:', user ? user.password : null);
+      console.log('Password from input:', password);
+      if (!user || !user.password || !(await bcrypt.compare(password, user.password))) {
+        conn.release();
         return res.status(401).json({ error: 'Invalid credentials' });
       }
-      
-      // In vulnerable mode, we'll bypass the password check
-      // This simulates a successful SQL injection
-      console.log('Found user:', user.username);
-      
-      res.json({ 
-        message: 'Login successful', 
-        user: { 
-          id: user._id, 
-          username: user.username, 
-          balance: user.balance, 
-          role: user.role 
-        } 
-      });
+      const token = jwt.sign({ username: user.username, role: user.role }, 'your-secret-key');
+      conn.release();
+      res.json({ token, user: { username: user.username, role: user.role } });
+    } else {
+      // Vulnerable version - using string concatenation
+     // Vulnerable version - but at least make it work with hashed passwords
+      const query = `SELECT * FROM users WHERE username = '${username}'`;
+      console.log('Executing query:', query);
+      const [result] = await conn.query(query);
+      const user = result[0];
+      if (!user || !(await bcrypt.compare(password, user.password))) {
+        conn.release();
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+      const token = jwt.sign({ username: user.username, role: user.role }, 'your-secret-key');
+      conn.release();
+      res.json({ token, user: { username: user.username, role: user.role } });
     }
   } catch (err) {
-    console.error('Login error:', err);
     res.status(500).json({ error: err.message });
   }
 });
+// ... existing code ...
 
 // Account lookup endpoint
 app.get('/api/accounts/:username', async (req, res) => {
   const { username } = req.params;
   const { secureMode } = req.query;
-  
   try {
+    const conn = await pool.getConnection();
     if (secureMode === 'true') {
       // Secure version
-      const account = await User.findOne({ username }, 'username balance');
-      if (!account) return res.status(404).json({ error: 'Account not found' });
+      const [result] = await conn.query('SELECT username, balance FROM users WHERE username = ?', [username]);
+      const account = result[0];
+      if (!account) {
+        conn.release();
+        return res.status(404).json({ error: 'Account not found' });
+      }
+      conn.release();
       res.json(account);
     } else {
-      // Vulnerable version - using string concatenation for demo
-      const query = `db.users.find({
-        username: "${username}"
-      })`;
-      
-      const accounts = await User.find({ username }, 'username balance');
-      if (!accounts || accounts.length === 0) return res.status(404).json({ error: 'Account not found' });
-      res.json(accounts.length === 1 ? accounts[0] : accounts);
+      // Vulnerable version
+      const query = `SELECT * FROM users WHERE username = '${username}'`;
+      console.log('⚠️ Executing vulnerable query:', query);
+      const [result] = await conn.query(query);
+      if (!result || result.length === 0) {
+        conn.release();
+        return res.status(404).json({ error: 'Account not found' });
+      }
+      conn.release();
+      res.json(result.length === 1 ? result[0] : result);
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -189,73 +174,42 @@ app.get('/api/accounts/:username', async (req, res) => {
 // Transfer endpoint
 app.post('/api/transfer', async (req, res) => {
   const { fromUser, toUser, amount, secureMode } = req.body;
-  
   try {
-    if (secureMode) {
-      // Secure transfer using transactions
-      const session = await mongoose.startSession();
-      session.startTransaction();
-      
-      try {
-        const sender = await User.findOne({ username: fromUser }).session(session);
-        if (!sender || sender.balance < amount) {
-          throw new Error('Insufficient funds or invalid sender');
-        }
-        
-        const recipient = await User.findOne({ username: toUser }).session(session);
-        if (!recipient) {
-          throw new Error('Recipient not found');
-        }
-        
-        sender.balance -= amount;
-        recipient.balance += amount;
-        
-        await sender.save({ session });
-        await recipient.save({ session });
-        
-        await Transaction.create([{
-          fromUser,
-          toUser,
-          amount
-        }], { session });
-        
-        await session.commitTransaction();
-        res.json({ message: 'Transfer successful' });
-      } catch (err) {
-        await session.abortTransaction();
-        throw err;
-      } finally {
-        session.endSession();
-      }
-    } else {
-      // Vulnerable transfer - using string concatenation for demo
-      const query = `db.users.updateOne(
-        { username: "${fromUser}" },
-        { $inc: { balance: -${amount} } }
-      )`;
-      
-      const sender = await User.findOne({ username: fromUser });
+    const conn = await pool.getConnection();
+    if (secureMode === 'true') {
+      // Secure version with transaction
+      await conn.beginTransaction();
+      const [senderResult] = await conn.query('SELECT balance FROM users WHERE username = ?', [fromUser]);
+      const sender = senderResult[0];
       if (!sender || sender.balance < amount) {
-        return res.status(400).json({ error: 'Insufficient funds or invalid sender' });
+        await conn.rollback();
+        conn.release();
+        return res.status(400).json({ error: 'Insufficient funds' });
       }
-      
-      const recipient = await User.findOne({ username: toUser });
-      if (!recipient) {
+      const [recipientResult] = await conn.query('SELECT 1 FROM users WHERE username = ?', [toUser]);
+      if (recipientResult.length === 0) {
+        await conn.rollback();
+        conn.release();
         return res.status(400).json({ error: 'Recipient not found' });
       }
-      
-      sender.balance -= amount;
-      recipient.balance += amount;
-      
-      await sender.save();
-      await recipient.save();
-      
-      await Transaction.create({
-        fromUser,
-        toUser,
-        amount
-      });
-      
+      await conn.query('UPDATE users SET balance = balance - ? WHERE username = ?', [amount, fromUser]);
+      await conn.query('UPDATE users SET balance = balance + ? WHERE username = ?', [amount, toUser]);
+      await conn.query('INSERT INTO transactions (from_user, to_user, amount) VALUES (?, ?, ?)', [fromUser, toUser, amount]);
+      await conn.commit();
+      conn.release();
+      res.json({ message: 'Transfer successful' });
+    } else {
+      // Vulnerable version
+      const query = `
+        UPDATE users SET balance = balance - ${amount} WHERE username = '${fromUser}' AND balance >= ${amount};
+        UPDATE users SET balance = balance + ${amount} WHERE username = '${toUser}';
+        INSERT INTO transactions (from_user, to_user, amount) VALUES ('${fromUser}', '${toUser}', ${amount});
+      `;
+      console.log('⚠️ Executing vulnerable query:', query);
+      await conn.query('START TRANSACTION');
+      await conn.query(query);
+      await conn.query('COMMIT');
+      conn.release();
       res.json({ message: 'Transfer successful' });
     }
   } catch (err) {
@@ -266,18 +220,101 @@ app.post('/api/transfer', async (req, res) => {
 // Get user transactions
 app.get('/api/transactions/:username', async (req, res) => {
   const { username } = req.params;
-  
+  const { secureMode } = req.query;
   try {
-    const transactions = await Transaction.find({
-      $or: [{ fromUser: username }, { toUser: username }]
-    }).sort({ timestamp: -1 });
-    
-    res.json(transactions);
+    const conn = await pool.getConnection();
+    if (secureMode === 'true') {
+      // Secure version
+      const [result] = await conn.query(
+        'SELECT * FROM transactions WHERE from_user = ? OR to_user = ? ORDER BY timestamp DESC LIMIT 10',
+        [username, username]
+      );
+      conn.release();
+      res.json(result);
+    } else {
+      // Vulnerable version
+      const query = `SELECT * FROM transactions WHERE from_user = '${username}' OR to_user = '${username}' ORDER BY timestamp DESC LIMIT 10`;
+      console.log('⚠️ Executing vulnerable query:', query);
+      const [result] = await conn.query(query);
+      conn.release();
+      res.json(result);
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
+// Admin endpoints
+app.get('/api/admin/users', async (req, res) => {
+  const { secureMode } = req.query;
+  try {
+    const conn = await pool.getConnection();
+    if (secureMode === 'true') {
+      // Secure version
+      const [result] = await conn.query('SELECT username, role, balance, email, full_name, created_at FROM users');
+      conn.release();
+      res.json(result);
+    } else {
+      // Vulnerable version
+      const query = 'SELECT * FROM users';
+      console.log('⚠️ Executing vulnerable query:', query);
+      const [result] = await conn.query(query);
+      conn.release();
+      res.json(result);
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/admin/transactions', async (req, res) => {
+  const { secureMode } = req.query;
+  try {
+    const conn = await pool.getConnection();
+    if (secureMode === 'true') {
+      // Secure version
+      const [result] = await conn.query('SELECT * FROM transactions ORDER BY timestamp DESC');
+      conn.release();
+      res.json(result);
+    } else {
+      // Vulnerable version
+      const query = 'SELECT * FROM transactions ORDER BY timestamp DESC';
+      console.log('⚠️ Executing vulnerable query:', query);
+      const [result] = await conn.query(query);
+      conn.release();
+      res.json(result);
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Registration endpoint
+app.post('/api/register', async (req, res) => {
+  const { username, password, email, full_name } = req.body;
+  try {
+    const conn = await pool.getConnection();
+    // Check if username already exists
+    const [existing] = await conn.query('SELECT 1 FROM users WHERE username = ?', [username]);
+    if (existing.length > 0) {
+      conn.release();
+      return res.status(400).json({ error: 'Username already taken' });
+    }
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    // Insert new user
+    await conn.query(
+      'INSERT INTO users (username, password, email, full_name) VALUES (?, ?, ?, ?)',
+      [username, hashedPassword, email, full_name]
+    );
+    conn.release();
+    res.json({ message: 'Registration successful' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });

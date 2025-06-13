@@ -10,7 +10,7 @@ const LoginPage = ({ secureMode, addAlert, setUser }) => {
   const [loading, setLoading] = useState(false);
 
   const [attackExamples] = useState([
-    "admin' --",
+    "admin' -- ",
     "' OR '1'='1",
     "' OR 1=1 --",
     "admin' /*"
