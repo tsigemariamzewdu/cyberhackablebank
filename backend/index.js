@@ -99,11 +99,13 @@ app.post('/api/register', async (req, res) => {
 // Login endpoint
 app.post('/api/login', async (req, res) => {
   const { username, password, secureMode } = req.body;
+  console.log(secureMode)
   try {
     const conn = await pool.getConnection();
-    if (secureMode === 'true') {
+    if (secureMode === 'true' || secureMode==true) {
       // Secure version
       const [result] = await conn.query('SELECT * FROM users WHERE username = ?', [username]);
+      console.log(result)
       const user = result[0];
       if (!user || !user.password || !(await bcrypt.compare(password, user.password))) {
         conn.release();
