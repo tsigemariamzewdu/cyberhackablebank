@@ -72,21 +72,22 @@ initializeDatabase();
 
 // Registration endpoint
 app.post('/api/register', async (req, res) => {
-  const { username, password, email, full_name } = req.body;
+  const { username, password, email, full_name, secureMode } = req.body;
   try {
     const conn = await pool.getConnection();
-    // Check if username already exists
     const [existing] = await conn.query('SELECT 1 FROM users WHERE username = ?', [username]);
     if (existing.length > 0) {
       conn.release();
       return res.status(400).json({ error: 'Username already taken' });
     }
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-    // Insert new user
+    console.log('secureMode received:', secureMode);
+    let toStore = password;
+    if (secureMode === true || secureMode === 'true') {
+      toStore = await bcrypt.hash(password, 10);
+    }
     await conn.query(
       'INSERT INTO users (username, password, email, full_name) VALUES (?, ?, ?, ?)',
-      [username, hashedPassword, email, full_name]
+      [username, toStore, email, full_name]
     );
     conn.release();
     res.json({ message: 'Registration successful' });
@@ -94,9 +95,6 @@ app.post('/api/register', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-
-// ... existing code ...
 
 // Login endpoint
 app.post('/api/login', async (req, res) => {
@@ -107,9 +105,6 @@ app.post('/api/login', async (req, res) => {
       // Secure version
       const [result] = await conn.query('SELECT * FROM users WHERE username = ?', [username]);
       const user = result[0];
-      console.log('User from DB:', user);
-      console.log('Password from DB:', user ? user.password : null);
-      console.log('Password from input:', password);
       if (!user || !user.password || !(await bcrypt.compare(password, user.password))) {
         conn.release();
         return res.status(401).json({ error: 'Invalid credentials' });
@@ -118,13 +113,12 @@ app.post('/api/login', async (req, res) => {
       conn.release();
       res.json({ token, user: { username: user.username, role: user.role } });
     } else {
-      // Vulnerable version - using string concatenation
-     // Vulnerable version - but at least make it work with hashed passwords
-      const query = `SELECT * FROM users WHERE username = '${username}'`;
+      // Insecure: check plain text
+      const query = `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`;
       console.log('Executing query:', query);
       const [result] = await conn.query(query);
       const user = result[0];
-      if (!user || !(await bcrypt.compare(password, user.password))) {
+      if (!user) {
         conn.release();
         return res.status(401).json({ error: 'Invalid credentials' });
       }
@@ -136,6 +130,7 @@ app.post('/api/login', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 // ... existing code ...
 
 // Account lookup endpoint
@@ -284,31 +279,6 @@ app.get('/api/admin/transactions', async (req, res) => {
       conn.release();
       res.json(result);
     }
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Registration endpoint
-app.post('/api/register', async (req, res) => {
-  const { username, password, email, full_name } = req.body;
-  try {
-    const conn = await pool.getConnection();
-    // Check if username already exists
-    const [existing] = await conn.query('SELECT 1 FROM users WHERE username = ?', [username]);
-    if (existing.length > 0) {
-      conn.release();
-      return res.status(400).json({ error: 'Username already taken' });
-    }
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-    // Insert new user
-    await conn.query(
-      'INSERT INTO users (username, password, email, full_name) VALUES (?, ?, ?, ?)',
-      [username, hashedPassword, email, full_name]
-    );
-    conn.release();
-    res.json({ message: 'Registration successful' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
