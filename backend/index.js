@@ -172,46 +172,81 @@ app.get('/api/accounts/:username', async (req, res) => {
 // Transfer endpoint
 app.post('/api/transfer', async (req, res) => {
   const { fromUser, toUser, amount, secureMode } = req.body;
+  const conn = await pool.getConnection();
+  
   try {
-    const conn = await pool.getConnection();
     if (secureMode === 'true') {
       // Secure version with transaction
       await conn.beginTransaction();
-      const [senderResult] = await conn.query('SELECT balance FROM users WHERE username = ?', [fromUser]);
-      const sender = senderResult[0];
-      if (!sender || sender.balance < amount) {
+      
+      // Check sender balance
+      const [sender] = await conn.query(
+        'SELECT balance FROM users WHERE username = ? FOR UPDATE', 
+        [fromUser]
+      );
+      
+      if (!sender[0] || sender[0].balance < amount) {
         await conn.rollback();
-        conn.release();
         return res.status(400).json({ error: 'Insufficient funds' });
       }
-      const [recipientResult] = await conn.query('SELECT 1 FROM users WHERE username = ?', [toUser]);
-      if (recipientResult.length === 0) {
+
+      // Check recipient exists
+      const [recipient] = await conn.query(
+        'SELECT 1 FROM users WHERE username = ?', 
+        [toUser]
+      );
+      
+      if (recipient.length === 0) {
         await conn.rollback();
-        conn.release();
         return res.status(400).json({ error: 'Recipient not found' });
       }
-      await conn.query('UPDATE users SET balance = balance - ? WHERE username = ?', [amount, fromUser]);
-      await conn.query('UPDATE users SET balance = balance + ? WHERE username = ?', [amount, toUser]);
-      await conn.query('INSERT INTO transactions (from_user, to_user, amount) VALUES (?, ?, ?)', [fromUser, toUser, amount]);
+
+      // Execute transfers
+      await conn.query(
+        'UPDATE users SET balance = balance - ? WHERE username = ?',
+        [amount, fromUser]
+      );
+      
+      await conn.query(
+        'UPDATE users SET balance = balance + ? WHERE username = ?',
+        [amount, toUser]
+      );
+      
+      await conn.query(
+        'INSERT INTO transactions (from_user, to_user, amount) VALUES (?, ?, ?)',
+        [fromUser, toUser, amount]
+      );
+      
       await conn.commit();
-      conn.release();
       res.json({ message: 'Transfer successful' });
     } else {
-      // Vulnerable version
-      const query = `
-        UPDATE users SET balance = balance - ${amount} WHERE username = '${fromUser}' AND balance >= ${amount};
-        UPDATE users SET balance = balance + ${amount} WHERE username = '${toUser}';
-        INSERT INTO transactions (from_user, to_user, amount) VALUES ('${fromUser}', '${toUser}', ${amount});
-      `;
-      console.log('⚠️ Executing vulnerable query:', query);
-      await conn.query('START TRANSACTION');
-      await conn.query(query);
-      await conn.query('COMMIT');
-      conn.release();
+      // Vulnerable version - execute statements separately but still vulnerable to SQLi
+      await conn.beginTransaction();
+      
+      // Vulnerable query 1 - check balance and deduct
+      await conn.query(
+        `UPDATE users SET balance = balance - ${amount} WHERE username = '${fromUser}' AND balance >= ${amount}`
+      );
+      
+      // Vulnerable query 2 - add to recipient
+      await conn.query(
+        `UPDATE users SET balance = balance + ${amount} WHERE username = '${toUser}'`
+      );
+      
+      // Vulnerable query 3 - record transaction
+      await conn.query(
+        `INSERT INTO transactions (from_user, to_user, amount) VALUES ('${fromUser}', '${toUser}', ${amount})`
+      );
+      
+      await conn.commit();
       res.json({ message: 'Transfer successful' });
     }
   } catch (err) {
+    await conn.rollback();
+    console.error('Transfer error:', err);
     res.status(500).json({ error: err.message });
+  } finally {
+    conn.release();
   }
 });
 
