@@ -8,15 +8,15 @@ function AccountPage({ user, secureMode }) {
 
   const attackExamples = [
     { 
-      payload: "' UNION SELECT id, username, password, balance, role, email, full_name, created_at FROM users --", 
+      payload: "' UNION SELECT id, username, password, balance, role, email, full_name, created_at FROM users -- ", 
       description: "Full database dump with correct field order" 
     },
     { 
-      payload: "' OR 1=1 --", 
+      payload: "' OR 1=1 -- ", 
       description: "Return all accounts" 
     },
     { 
-      payload: "admin' --", 
+      payload: "admin' -- ", 
       description: "Bypass authentication" 
     }
   ];
@@ -231,24 +231,41 @@ function AccountPage({ user, secureMode }) {
                     ))}
                   </div>
                 ) : (
-                  // Display single account (normal lookup)
-                  <table className="account-table" style={{ 
-                    width: '100%', 
-                    borderCollapse: 'collapse'
-                  }}>
-                    <tbody>
-                      <tr style={{ borderBottom: '1px solid #eee' }}>
-                        <th style={{ padding: '10px', textAlign: 'left', width: '30%' }}>Username</th>
-                        <td style={{ padding: '10px' }}>{account.username}</td>
-                      </tr>
-                      <tr>
-                        <th style={{ padding: '10px', textAlign: 'left' }}>Balance</th>
-                        <td style={{ padding: '10px' }}>
-                          ${parseFloat(account.balance || 0).toFixed(2)}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  // Display results based on secureMode
+                  secureMode ? (
+                    // Secure mode - only show existence confirmation
+                    <div style={{
+                      padding: '15px',
+                      backgroundColor: '#f0fff4',
+                      borderLeft: '4px solid #38a169',
+                      borderRadius: '4px',
+                      marginTop: '15px'
+                    }}>
+                      <p style={{ margin: 0 }}>
+                        ✅ <strong>{account.username}</strong> is a registered user of our bank.
+                        You can send and receive money from this user.
+                      </p>
+                    </div>
+                  ) : (
+                    // Insecure mode - show all details
+                    <table className="account-table" style={{ 
+                      width: '100%', 
+                      borderCollapse: 'collapse'
+                    }}>
+                      <tbody>
+                        <tr style={{ borderBottom: '1px solid #eee' }}>
+                          <th style={{ padding: '10px', textAlign: 'left', width: '30%' }}>Username</th>
+                          <td style={{ padding: '10px' }}>{account.username}</td>
+                        </tr>
+                        <tr>
+                          <th style={{ padding: '10px', textAlign: 'left' }}>Balance</th>
+                          <td style={{ padding: '10px' }}>
+                            ${parseFloat(account.balance || 0).toFixed(2)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  )
                 )}
               </div>
             )}
@@ -303,7 +320,7 @@ function AccountPage({ user, secureMode }) {
                   fontSize: '0.9rem'
                 }}>
                   {secureMode ? (
-                    <>Account lookup uses <strong>parameterized queries</strong> to prevent SQL injection and UNION-based attacks.</>
+                    <>Account lookup uses <strong>parameterized queries</strong> and only reveals minimal information.</>
                   ) : (
                     <>This lookup is <strong>vulnerable to SQL injection</strong>! Try a UNION-based attack.</>
                   )}

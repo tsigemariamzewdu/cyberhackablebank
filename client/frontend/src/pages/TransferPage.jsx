@@ -8,10 +8,22 @@ function TransferPage({ user, secureMode }) {
   const [error, setError] = useState(null);
 
   const attackExamples = [
-    "ed'; UPDATE users SET balance = 10000 WHERE username = 'youruser' --",
-    "bob'; DROP TABLE users; --",
-    "alice' OR 1=1 --",
-    "' OR EXISTS(SELECT 1) --"
+    { 
+      payload: "ed'; UPDATE users SET balance = 10000 WHERE username = 'youruser' --", 
+      description: "Modify your account balance" 
+    },
+    { 
+      payload: "bob'; DROP TABLE users; --", 
+      description: "Delete the users table" 
+    },
+    { 
+      payload: "alice' OR 1=1 --", 
+      description: "Bypass recipient validation" 
+    },
+    { 
+      payload: "' OR EXISTS(SELECT 1) --", 
+      description: "Conditional SQL injection" 
+    }
   ];
 
   const handleTransfer = async (e) => {
@@ -61,19 +73,23 @@ function TransferPage({ user, secureMode }) {
     }
   };
 
+  const fillExample = (payload) => {
+    setToUser(payload);
+  };
+
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px', fontFamily: 'system-ui, sans-serif' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+    <div className="account-container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
+      <div className="account-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
         {/* Transfer Form Section */}
-        <div>
-          <div style={{ 
+        <div className="account-form-section">
+          <div className="account-card" style={{ 
             background: '#fff', 
             borderRadius: '8px', 
             boxShadow: '0 2px 10px rgba(0,0,0,0.1)', 
             padding: '20px'
           }}>
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ 
+            <div className="account-header" style={{ marginBottom: '20px' }}>
+              <div className="account-icon" style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'center', 
@@ -87,14 +103,14 @@ function TransferPage({ user, secureMode }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a5 5 0 00-10 0v2M5 12h14M7 12v7a2 2 0 002 2h6a2 2 0 002-2v-7" />
                 </svg>
               </div>
-              <h2 style={{ 
+              <h2 className="account-title" style={{ 
                 fontSize: '1.5rem', 
                 fontWeight: '600', 
                 margin: '0 0 5px 0'
               }}>
                 {secureMode ? 'Secure Money Transfer' : 'Hackable Money Transfer'}
               </h2>
-              <p style={{ 
+              <p className="account-subtitle" style={{ 
                 color: '#666', 
                 margin: '0'
               }}>
@@ -102,9 +118,9 @@ function TransferPage({ user, secureMode }) {
               </p>
             </div>
 
-            <form onSubmit={handleTransfer}>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ 
+            <form onSubmit={handleTransfer} className="account-form">
+              <div className="form-group" style={{ marginBottom: '15px' }}>
+                <label className="form-label" style={{ 
                   display: 'block', 
                   marginBottom: '5px', 
                   fontWeight: '500'
@@ -114,19 +130,21 @@ function TransferPage({ user, secureMode }) {
                   value={toUser}
                   onChange={e => setToUser(e.target.value)}
                   required
+                  className="form-input"
                   style={{ 
                     width: '100%', 
                     padding: '10px', 
                     border: '1px solid #ddd', 
                     borderRadius: '4px', 
-                    fontSize: '14px'
+                    fontSize: '14px',
+                    backgroundColor: '#ffffff'
                   }}
                   placeholder="Enter recipient username"
                 />
               </div>
 
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ 
+              <div className="form-group" style={{ marginBottom: '15px' }}>
+                <label className="form-label" style={{ 
                   display: 'block', 
                   marginBottom: '5px', 
                   fontWeight: '500'
@@ -138,12 +156,14 @@ function TransferPage({ user, secureMode }) {
                   value={amount}
                   onChange={e => setAmount(e.target.value)}
                   required
+                  className="form-input"
                   style={{ 
                     width: '100%', 
                     padding: '10px', 
                     border: '1px solid #ddd', 
                     borderRadius: '4px', 
-                    fontSize: '14px'
+                    fontSize: '14px',
+                    backgroundColor: '#ffffff'
                   }}
                   placeholder="Enter amount"
                 />
@@ -151,6 +171,7 @@ function TransferPage({ user, secureMode }) {
 
               <button
                 type="submit"
+                className="account-button"
                 style={{ 
                   width: '100%', 
                   padding: '12px', 
@@ -169,7 +190,7 @@ function TransferPage({ user, secureMode }) {
               >
                 {loading ? (
                   <>
-                    <div style={{ 
+                    <div className="spinner" style={{ 
                       width: '16px', 
                       height: '16px', 
                       border: '2px solid rgba(255,255,255,0.3)', 
@@ -228,20 +249,20 @@ function TransferPage({ user, secureMode }) {
         </div>
 
         {/* Information Panel */}
-        <div>
-          <div style={{ 
+        <div className="info-panel">
+          <div className={`security-card ${secureMode ? 'secure' : 'vulnerable'}`} style={{ 
             background: '#fff', 
             borderRadius: '8px', 
             boxShadow: '0 2px 10px rgba(0,0,0,0.1)', 
             padding: '20px',
             marginBottom: '20px'
           }}>
-            <div style={{ 
+            <div className="security-header" style={{ 
               display: 'flex', 
               alignItems: 'flex-start', 
               gap: '12px'
             }}>
-              <div style={{ 
+              <div className={`security-icon ${secureMode ? 'secure' : 'vulnerable'}`} style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'center', 
@@ -262,14 +283,14 @@ function TransferPage({ user, secureMode }) {
                 )}
               </div>
               <div>
-                <h3 style={{ 
+                <h3 className="security-title" style={{ 
                   fontSize: '1.2rem', 
                   fontWeight: '600', 
                   margin: '0 0 5px 0'
                 }}>
                   {secureMode ? 'Defense Mechanism' : 'Security Vulnerability'}
                 </h3>
-                <p style={{ 
+                <p className="security-description" style={{ 
                   color: '#666', 
                   margin: '0',
                   fontSize: '0.9rem'
@@ -286,19 +307,19 @@ function TransferPage({ user, secureMode }) {
 
           {/* Attack Examples */}
           {!secureMode && (
-            <div style={{ 
+            <div className="examples-card" style={{ 
               background: '#fff', 
               borderRadius: '8px', 
               boxShadow: '0 2px 10px rgba(0,0,0,0.1)', 
               padding: '20px'
             }}>
-              <div style={{ 
+              <div className="examples-header" style={{ 
                 display: 'flex', 
                 alignItems: 'flex-start', 
                 gap: '12px',
                 marginBottom: '15px'
               }}>
-                <div style={{ 
+                <div className="examples-icon" style={{ 
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'center', 
@@ -313,19 +334,19 @@ function TransferPage({ user, secureMode }) {
                   </svg>
                 </div>
                 <div>
-                  <h3 style={{ 
+                  <h3 className="examples-title" style={{ 
                     fontSize: '1.2rem', 
                     fontWeight: '600', 
                     margin: '0 0 5px 0'
                   }}>SQL Injection Examples</h3>
-                  <p style={{ 
+                  <p className="examples-subtitle" style={{ 
                     color: '#666', 
                     margin: '0',
                     fontSize: '0.9rem'
                   }}>Click any example to auto-fill the form</p>
                 </div>
               </div>
-              <div style={{ 
+              <div className="examples-list" style={{ 
                 display: 'grid', 
                 gap: '10px',
                 marginBottom: '20px'
@@ -333,7 +354,7 @@ function TransferPage({ user, secureMode }) {
                 {attackExamples.map((example, index) => (
                   <button
                     key={index}
-                    onClick={() => setToUser(example)}
+                    onClick={() => fillExample(example.payload)}
                     style={{ 
                       display: 'flex', 
                       alignItems: 'center', 
@@ -347,20 +368,25 @@ function TransferPage({ user, secureMode }) {
                       width: '100%'
                     }}
                   >
-                    <code style={{ 
-                      fontSize: '0.8rem', 
-                      color: '#4a5568', 
-                      whiteSpace: 'nowrap', 
-                      overflow: 'hidden', 
-                      textOverflow: 'ellipsis'
-                    }}>{example}</code>
+                    <div>
+                      <code style={{ 
+                        fontSize: '0.8rem', 
+                        color: '#4a5568', 
+                        display: 'block',
+                        marginBottom: '4px'
+                      }}>{example.payload}</code>
+                      <small style={{ 
+                        color: '#718096',
+                        fontSize: '0.75rem'
+                      }}>{example.description}</small>
+                    </div>
                     <svg width="16" height="16" fill="none" stroke="#718096" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </button>
                 ))}
               </div>
-              <div style={{ 
+              <div className="info-tip" style={{ 
                 display: 'flex', 
                 gap: '12px', 
                 padding: '12px', 
@@ -371,17 +397,17 @@ function TransferPage({ user, secureMode }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <div>
-                  <p style={{ 
+                  <p className="tip-title" style={{ 
                     fontWeight: '500', 
                     margin: '0 0 5px 0',
                     fontSize: '0.9rem'
                   }}>How it works:</p>
-                  <p style={{ 
+                  <p className="tip-description" style={{ 
                     color: '#4a5568', 
                     margin: '0',
                     fontSize: '0.85rem'
                   }}>
-                    These payloads manipulate the SQL query structure, potentially bypassing authentication or revealing sensitive data from the database.
+                    These payloads manipulate the SQL query structure, potentially bypassing authentication or modifying database content.
                   </p>
                 </div>
               </div>
