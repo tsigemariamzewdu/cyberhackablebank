@@ -17,7 +17,8 @@ const pool = mysql.createPool({
   port: 3306, // MAMP's default MySQL port
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  multipleStatements: true // Enable multiple statements for SQL injection testing
 });
 
 // Initialize database tables
@@ -221,8 +222,6 @@ app.post('/api/transfer', async (req, res) => {
       res.json({ message: 'Transfer successful' });
     } else {
       // Vulnerable version - execute statements separately but still vulnerable to SQLi
-      await conn.beginTransaction();
-      
       // Vulnerable query 1 - check balance and deduct
       await conn.query(
         `UPDATE users SET balance = balance - ${amount} WHERE username = '${fromUser}' AND balance >= ${amount}`
@@ -238,11 +237,9 @@ app.post('/api/transfer', async (req, res) => {
         `INSERT INTO transactions (from_user, to_user, amount) VALUES ('${fromUser}', '${toUser}', ${amount})`
       );
       
-      await conn.commit();
       res.json({ message: 'Transfer successful' });
     }
   } catch (err) {
-    await conn.rollback();
     console.error('Transfer error:', err);
     res.status(500).json({ error: err.message });
   } finally {

@@ -42,14 +42,19 @@ function DashboardPage({ user }) {
       
       setStats({
         balance: accountData.balance || 0,
-        transactions: transactionsData.map(t => ({
-          id: t._id,
-          date: new Date(t.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-          description: `Transfer ${t.fromUser === user.username ? 'to' : 'from'} ${t.fromUser === user.username ? t.toUser : t.fromUser}`,
-          type: t.fromUser === user.username ? 'Withdrawal' : 'Deposit',
-          amount: t.fromUser === user.username ? -t.amount : t.amount,
-          status: 'Completed'
-        })),
+        transactions: transactionsData.map(t => {
+          // Map snake_case to camelCase for consistency
+          const fromUser = t.from_user;
+          const toUser = t.to_user;
+          return {
+            id: t.id || t._id,
+            date: new Date(t.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            description: `Transfer ${fromUser === user.username ? 'to' : 'from'} ${fromUser === user.username ? toUser : fromUser}`,
+            type: fromUser === user.username ? 'Withdrawal' : 'Deposit',
+            amount: fromUser === user.username ? -t.amount : t.amount,
+            status: 'Completed'
+          };
+        }),
         accountStatus: 'Active'
       });
     } catch (err) {
