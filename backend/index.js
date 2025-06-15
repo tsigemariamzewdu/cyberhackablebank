@@ -97,6 +97,7 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
+
 // Login endpoint
 app.post('/api/login', async (req, res) => {
   const { username, password, secureMode } = req.body;
@@ -131,6 +132,92 @@ app.post('/api/login', async (req, res) => {
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
+const { body, validationResult } = require('express-validator');
+
+// // Apply security middleware globally or to specific routes
+// app.use(helmet()); // Basic security headers (part of WAF approach)
+
+// // Rate limiting (part of WAF approach)
+// const authLimiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 5, // Limit each IP to 5 login attempts per window
+//   message: 'Too many login attempts, please try again later'
+// });
+
+// Input validation middleware
+const validateLoginInput = [
+  body('username')
+    .isLength({ min: 3, max: 20 })
+    .withMessage('Username must be 3-20 characters')
+    .matches(/^[a-zA-Z0-9_]+$/)
+    .withMessage('Username can only contain letters, numbers and underscores'),
+  body('password')
+    .isLength({ min: 8 })
+    .withMessage('Password must be at least 8 characters'),
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+  }
+];
+
+// Secure login route with added protections
+app.post('/api/login', validateLoginInput, async (req, res) => {
+  const { username, password, secureMode } = req.body;
+  
+  try {
+    const conn = await pool.getConnection();
+    
+    if (secureMode === 'true' || secureMode === true) {
+      // Secure version with all protections
+      const [result] = await conn.query(
+        'SELECT * FROM users WHERE username = ?', 
+        [username]
+      );
+      
+      const user = result[0];
+      if (!user || !user.password || !(await bcrypt.compare(password, user.password))) {
+        conn.release();
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+      
+      const token = jwt.sign(
+        { username: user.username, role: user.role }, 
+        'your-secret-key',
+        { expiresIn: '1h' } // Token expiration
+      );
+      
+      conn.release();
+      res.json({ 
+        token, 
+        user: { 
+          username: user.username, 
+          role: user.role 
+        } 
+      });
+    } else {
+      // Insecure version remains untouched
+      const query = `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`;
+      console.log('Executing query:', query);
+      const [result] = await conn.query(query);
+      const user = result[0];
+      if (!user) {
+        conn.release();
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+      const token = jwt.sign({ username: user.username, role: user.role }, 'your-secret-key');
+      conn.release();
+      res.json({ token, user: { username: user.username, role: user.role } });
+    }
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Authentication failed' });
   }
 });
 

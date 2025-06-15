@@ -164,7 +164,15 @@ function App() {
           <Route
             path="/dashboard"
             element={
-              user ? <DashboardPage user={user} secureMode={secureMode} /> : <Navigate to="/login" />
+              user ? (
+                user.role === 'admin' ? (
+                  <Navigate to="/admin" />
+                ) : (
+                  <DashboardPage user={user} secureMode={secureMode} />
+                )
+              ) : (
+                <Navigate to="/login" />
+              )
             }
           />
           <Route
