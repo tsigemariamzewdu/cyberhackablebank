@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import './HomePage.css';
 
-function HomePage({ user }) {
+function HomePage({ user, secureMode }) {
   return (
     <div className="homepage">
       <div className="container">
@@ -12,7 +12,7 @@ function HomePage({ user }) {
             🏦
           </div>
           
-          <h1>SecureBank</h1>
+          <h1>{secureMode ? 'SecureBank' : 'Hackable Bank'}</h1>
           
           <h2>
             Learn about <span className="highlight">SQL Injection</span> attacks and defenses
@@ -37,12 +37,6 @@ function HomePage({ user }) {
             <h3>Vulnerable Mode</h3>
             <p>Learn by trying real SQL injection attacks in a safe environment.</p>
           </div>
-
-          <div className="card">
-            <div className="card-icon lab">⚡</div>
-            <h3>Attack Lab</h3>
-            <p>Practice ethical hacking with guided tutorials and scenarios.</p>
-          </div>
         </div>
 
         {/* Action Buttons */}
@@ -52,10 +46,6 @@ function HomePage({ user }) {
               Get Started
             </Link>
           )}
-          
-          <Link to="/attack-lab" className="btn secondary">
-            Try Attack Lab
-          </Link>
         </div>
 
         {/* Stats */}

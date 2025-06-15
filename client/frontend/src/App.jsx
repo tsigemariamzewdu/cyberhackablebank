@@ -7,7 +7,6 @@ import RegisterPage from './pages/RegisterPage';
 import AccountPage from './pages/AccountPage';
 import TransferPage from './pages/TransferPage';
 import AdminPage from './pages/AdminPage';
-import AttackLabPage from './pages/AttackLabPage';
 import DashboardPage from './pages/DashboardPage';
 import './theme.css';
 import './App.css';
@@ -93,10 +92,6 @@ function App() {
                   Admin
                 </Nav.Link>
               )}
-              <Nav.Link as={Link} to="/attack-lab">
-                <i className="fas fa-bug me-1"></i>
-                Attack Lab
-              </Nav.Link>
             </Nav>
             <div className="d-flex align-items-center">
               {user && (
@@ -183,10 +178,6 @@ function App() {
           <Route
             path="/admin"
             element={user?.role === 'admin' ? <AdminPage secureMode={secureMode} /> : <Navigate to="/" />}
-          />
-          <Route
-            path="/attack-lab"
-            element={<AttackLabPage secureMode={secureMode} />}
           />
         </Routes>
       </div>
