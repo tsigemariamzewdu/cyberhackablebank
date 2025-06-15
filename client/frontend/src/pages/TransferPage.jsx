@@ -8,9 +8,9 @@ function TransferPage({ user, secureMode }) {
   const [error, setError] = useState(null);
 
   const attackExamples = [
-    { 
-      payload: "ed'; UPDATE users SET balance = 10000 WHERE username = 'youruser' --", 
-      description: "Modify your account balance" 
+   { 
+      payload: "dibb'; UPDATE users SET balance = 10000 WHERE username = 'tsts'; --", 
+      description: "Modify account balance" 
     },
     { 
       payload: "bob'; DROP TABLE users; --", 

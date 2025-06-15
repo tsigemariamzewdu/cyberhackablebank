@@ -310,16 +310,32 @@ app.post('/api/transfer', async (req, res) => {
     } else {
       // Vulnerable version - execute statements separately but still vulnerable to SQLi
       // Vulnerable query 1 - check balance and deduct
-      await conn.query(
-        `UPDATE users SET balance = balance - ${amount} WHERE username = '${fromUser}' AND balance >= ${amount}`
+       const [senderCheck] = await conn.query(
+        `SELECT * FROM users WHERE username = '${fromUser}'`
       );
       
-      // Vulnerable query 2 - add to recipient
+      if (senderCheck.length === 0) {
+        return res.status(400).json({ error: 'Sender not found' });
+      }
+
+      // 2. Check balance (vulnerable to SQLi)
+      const [balanceCheck] = await conn.query(
+        `SELECT balance FROM users WHERE username = '${fromUser}' AND balance >= ${amount}`
+      );
+      
+      if (balanceCheck.length === 0) {
+        return res.status(400).json({ error: 'Insufficient funds' });
+      }
+
+      // 3. Perform transfer (vulnerable to SQLi)
+      await conn.query(
+        `UPDATE users SET balance = balance - ${amount} WHERE username = '${fromUser}'`
+      );
+      
       await conn.query(
         `UPDATE users SET balance = balance + ${amount} WHERE username = '${toUser}'`
       );
       
-      // Vulnerable query 3 - record transaction
       await conn.query(
         `INSERT INTO transactions (from_user, to_user, amount) VALUES ('${fromUser}', '${toUser}', ${amount})`
       );
@@ -333,6 +349,57 @@ app.post('/api/transfer', async (req, res) => {
     conn.release();
   }
 });
+// app.post('/api/transfer', async (req, res) => {
+//   const { fromUser, toUser, amount, secureMode } = req.body;
+//   const conn = await pool.getConnection();
+  
+//   try {
+//     if (secureMode === 'true' || secureMode === true) {
+//       // [Keep existing secure implementation...]
+//     } else {
+//       // Vulnerable version - execute statements with SQL injection possibilities
+//       // Using template literals to directly interpolate user input
+      
+//       // 1. First check if sender exists (vulnerable to SQLi)
+//       const [senderCheck] = await conn.query(
+//         `SELECT * FROM users WHERE username = '${fromUser}'`
+//       );
+      
+//       if (senderCheck.length === 0) {
+//         return res.status(400).json({ error: 'Sender not found' });
+//       }
+
+//       // 2. Check balance (vulnerable to SQLi)
+//       const [balanceCheck] = await conn.query(
+//         `SELECT balance FROM users WHERE username = '${fromUser}' AND balance >= ${amount}`
+//       );
+      
+//       if (balanceCheck.length === 0) {
+//         return res.status(400).json({ error: 'Insufficient funds' });
+//       }
+
+//       // 3. Perform transfer (vulnerable to SQLi)
+//       await conn.query(
+//         `UPDATE users SET balance = balance - ${amount} WHERE username = '${fromUser}'`
+//       );
+      
+//       await conn.query(
+//         `UPDATE users SET balance = balance + ${amount} WHERE username = '${toUser}'`
+//       );
+      
+//       await conn.query(
+//         `INSERT INTO transactions (from_user, to_user, amount) VALUES ('${fromUser}', '${toUser}', ${amount})`
+//       );
+      
+//       res.json({ message: 'Transfer successful' });
+//     }
+//   } catch (err) {
+//     console.error('Transfer error:', err);
+//     res.status(500).json({ error: 'Transfer failed' }); // Generic error message
+//   } finally {
+//     conn.release();
+//   }
+// });
 
 // Get user transactions
 app.get('/api/transactions/:username', async (req, res) => {
