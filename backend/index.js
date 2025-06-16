@@ -3,31 +3,56 @@ const cors = require('cors');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(helmet()); // Basic security headers
 
-// MySQL connection for MAMP
-const pool = mysql.createPool({
+// Create two separate connection pools
+const securePool = mysql.createPool({
   host: '127.0.0.1',
-  user: 'root',
-  password: 'root',
+  user: 'bank_app_secure', // Limited privilege user
+  password: 'secure_password',
   database: 'hackable_bank',
-  port: 3306, // MAMP's default MySQL port
+  port: 3306,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  multipleStatements: true // Enable multiple statements for SQL injection testing
+  multipleStatements: false // Disabled for security
 });
 
-// Initialize database tables
-async function initializeDatabase() {
-  try {
-    const conn = await pool.getConnection();
-    console.log("✅ Connected to MySQL via MAMP");
+const insecurePool = mysql.createPool({
+  host: '127.0.0.1',
+  user: 'root', // Full privilege user
+  password: 'root',
+  database: 'hackable_bank',
+  port: 3306,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+  multipleStatements: true // Enabled for SQL injection testing
+});
 
-    // Create users table
+// Function to get the appropriate pool based on mode
+function getPool(secureMode) {
+  return secureMode === true || secureMode === 'true' ? securePool : insecurePool;
+}
+
+// Initialize database tables (run once with admin privileges)
+async function initializeDatabase() {
+  let conn;
+  try {
+    conn = await insecurePool.getConnection();
+    console.log("✅ Connected to MySQL with admin privileges");
+
+    // Create database if not exists (commented out as it's created in your pool config)
+    // await conn.query('CREATE DATABASE IF NOT EXISTS hackable_bank');
+    // await conn.query('USE hackable_bank');
+
+    // Create tables first
     await conn.query(`
       CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -41,7 +66,6 @@ async function initializeDatabase() {
       )
     `);
 
-    // Create transactions table
     await conn.query(`
       CREATE TABLE IF NOT EXISTS transactions (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -52,7 +76,24 @@ async function initializeDatabase() {
       )
     `);
 
-    // Create admin user if not exists
+    // Now create and configure the limited user
+    await conn.query(`
+      CREATE USER IF NOT EXISTS 'bank_app_secure'@'localhost' IDENTIFIED BY 'secure_password'
+    `);
+    
+    // Grant privileges on existing tables
+    await conn.query(`
+      GRANT SELECT, INSERT, UPDATE ON hackable_bank.users TO 'bank_app_secure'@'localhost'
+    `);
+    
+    await conn.query(`
+      GRANT SELECT, INSERT ON hackable_bank.transactions TO 'bank_app_secure'@'localhost'
+    `);
+
+    // Flush privileges to apply changes
+    await conn.query('FLUSH PRIVILEGES');
+
+    // Insert test data
     const [adminCheck] = await conn.query('SELECT * FROM users WHERE username = ?', ['admin']);
     if (adminCheck.length === 0) {
       const hashedPassword = await bcrypt.hash('admin123', 10);
@@ -62,34 +103,52 @@ async function initializeDatabase() {
       );
       console.log('👑 Admin user created');
     }
-    conn.release();
+
+    console.log("✅ Database initialized successfully");
   } catch (err) {
-    console.error('❌ Database initialization failed:', err);
+    console.error("❌ Database initialization failed:", err);
+    throw err; // Re-throw to prevent app from starting with bad DB state
+  } finally {
+    if (conn) conn.release();
   }
 }
 
-initializeDatabase();
-// ... existing code ...
+// Rate limiting for auth endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 requests per window
+  message: 'Too many attempts, please try again later'
+});
 
 // Registration endpoint
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', authLimiter, async (req, res) => {
   const { username, password, email, full_name, secureMode } = req.body;
+  
   try {
+    const pool = getPool(secureMode);
     const conn = await pool.getConnection();
-    const [existing] = await conn.query('SELECT 1 FROM users WHERE username = ?', [username]);
+    
+    // Check if username exists
+    const [existing] = await conn.query(
+      'SELECT 1 FROM users WHERE username = ?', 
+      [username]
+    );
+    
     if (existing.length > 0) {
       conn.release();
       return res.status(400).json({ error: 'Username already taken' });
     }
-    console.log('secureMode received:', secureMode);
-    let toStore = password;
-    if (secureMode === true || secureMode === 'true') {
-      toStore = await bcrypt.hash(password, 10);
-    }
+
+    // Hash password in secure mode
+    const toStore = secureMode === true || secureMode === 'true' 
+      ? await bcrypt.hash(password, 10) 
+      : password;
+
     await conn.query(
       'INSERT INTO users (username, password, email, full_name) VALUES (?, ?, ?, ?)',
       [username, toStore, email, full_name]
     );
+    
     conn.release();
     res.json({ message: 'Registration successful' });
   } catch (err) {
@@ -97,92 +156,30 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-
 // Login endpoint
-app.post('/api/login', async (req, res) => {
-  const { username, password, secureMode } = req.body;
-  console.log(secureMode)
-  try {
-    const conn = await pool.getConnection();
-    if (secureMode === 'true' || secureMode==true) {
-      // Secure version
-      const [result] = await conn.query('SELECT * FROM users WHERE username = ?', [username]);
-      console.log(result)
-      const user = result[0];
-      if (!user || !user.password || !(await bcrypt.compare(password, user.password))) {
-        conn.release();
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
-      const token = jwt.sign({ username: user.username, role: user.role }, 'your-secret-key');
-      conn.release();
-      res.json({ token, user: { username: user.username, role: user.role } });
-    } else {
-      // Insecure: check plain text
-      const query = `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`;
-      console.log('Executing query:', query);
-      const [result] = await conn.query(query);
-      const user = result[0];
-      if (!user) {
-        conn.release();
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
-      const token = jwt.sign({ username: user.username, role: user.role }, 'your-secret-key');
-      conn.release();
-      res.json({ token, user: { username: user.username, role: user.role } });
-    }
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-const rateLimit = require('express-rate-limit');
-const helmet = require('helmet');
-const { body, validationResult } = require('express-validator');
-
-// // Apply security middleware globally or to specific routes
-// app.use(helmet()); // Basic security headers (part of WAF approach)
-
-// // Rate limiting (part of WAF approach)
-// const authLimiter = rateLimit({
-//   windowMs: 15 * 60 * 1000, // 15 minutes
-//   max: 5, // Limit each IP to 5 login attempts per window
-//   message: 'Too many login attempts, please try again later'
-// });
-
-// Input validation middleware
-const validateLoginInput = [
-  body('username')
-    .isLength({ min: 3, max: 20 })
-    .withMessage('Username must be 3-20 characters')
-    .matches(/^[a-zA-Z0-9_]+$/)
-    .withMessage('Username can only contain letters, numbers and underscores'),
-  body('password')
-    .isLength({ min: 8 })
-    .withMessage('Password must be at least 8 characters'),
-  (req, res, next) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-    next();
-  }
-];
-
-// Secure login route with added protections
-app.post('/api/login', validateLoginInput, async (req, res) => {
+app.post('/api/login', authLimiter, async (req, res) => {
   const { username, password, secureMode } = req.body;
   
   try {
+    const pool = getPool(secureMode);
     const conn = await pool.getConnection();
     
-    if (secureMode === 'true' || secureMode === true) {
-      // Secure version with all protections
+    if (secureMode === true || secureMode === 'true') {
+      // Secure version with input validation
+      if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
+        conn.release();
+        return res.status(400).json({ 
+          error: 'Invalid username format' 
+        });
+      }
+      
       const [result] = await conn.query(
         'SELECT * FROM users WHERE username = ?', 
         [username]
       );
       
       const user = result[0];
-      if (!user || !user.password || !(await bcrypt.compare(password, user.password))) {
+      if (!user || !(await bcrypt.compare(password, user.password))) {
         conn.release();
         return res.status(401).json({ error: 'Invalid credentials' });
       }
@@ -190,65 +187,83 @@ app.post('/api/login', validateLoginInput, async (req, res) => {
       const token = jwt.sign(
         { username: user.username, role: user.role }, 
         'your-secret-key',
-        { expiresIn: '1h' } // Token expiration
+        { expiresIn: '1h' }
       );
       
       conn.release();
       res.json({ 
-        token, 
-        user: { 
-          username: user.username, 
-          role: user.role 
-        } 
+        token,
+        user: {
+          username: user.username,
+          role: user.role,
+          balance: user.balance
+        }
       });
     } else {
-      // Insecure version remains untouched
+      // Insecure version
       const query = `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`;
-      console.log('Executing query:', query);
+      console.log('⚠️ Executing vulnerable query:', query);
       const [result] = await conn.query(query);
-      const user = result[0];
-      if (!user) {
+      
+      if (!result || result.length === 0) {
         conn.release();
         return res.status(401).json({ error: 'Invalid credentials' });
       }
-      const token = jwt.sign({ username: user.username, role: user.role }, 'your-secret-key');
+      
+      const token = jwt.sign(
+        { username: result[0].username, role: result[0].role }, 
+        'your-secret-key'
+      );
+      
       conn.release();
-      res.json({ token, user: { username: user.username, role: user.role } });
+      res.json({ 
+        token,
+        user: {
+          username: result[0].username,
+          role: result[0].role,
+          balance: result[0].balance
+        }
+      });
     }
   } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ error: 'Authentication failed' });
+    res.status(500).json({ error: err.message });
   }
 });
-
-// ... existing code ...
 
 // Account lookup endpoint
 app.get('/api/accounts/:username', async (req, res) => {
   const { username } = req.params;
   const { secureMode } = req.query;
+  
   try {
+    const pool = getPool(secureMode);
     const conn = await pool.getConnection();
-    if (secureMode === 'true') {
+    
+    if (secureMode === true || secureMode === 'true') {
       // Secure version
-      const [result] = await conn.query('SELECT username, balance FROM users WHERE username = ?', [username]);
-      const account = result[0];
-      if (!account) {
+      const [result] = await conn.query(
+        'SELECT username, balance FROM users WHERE username = ?',
+        [username]
+      );
+      
+      if (!result || result.length === 0) {
         conn.release();
         return res.status(404).json({ error: 'Account not found' });
       }
+      
       conn.release();
-      res.json(account);
+      res.json(result[0]);
     } else {
       // Vulnerable version
       const query = `SELECT * FROM users WHERE username = '${username}'`;
       console.log('⚠️ Executing vulnerable query:', query);
       const [result] = await conn.query(query);
-      console.log(result[0])
+      
       if (!result || result.length === 0) {
         conn.release();
         return res.status(404).json({ error: 'Account not found' });
       }
+      
       conn.release();
       res.json(result);
     }
@@ -260,36 +275,40 @@ app.get('/api/accounts/:username', async (req, res) => {
 // Transfer endpoint
 app.post('/api/transfer', async (req, res) => {
   const { fromUser, toUser, amount, secureMode } = req.body;
-  const conn = await pool.getConnection();
   
   try {
-    if (secureMode === 'true') {
+    const pool = getPool(secureMode);
+    const conn = await pool.getConnection();
+    
+    if (secureMode === true || secureMode === 'true') {
       // Secure version with transaction
       await conn.beginTransaction();
       
       // Check sender balance
       const [sender] = await conn.query(
-        'SELECT balance FROM users WHERE username = ? FOR UPDATE', 
+        'SELECT balance FROM users WHERE username = ? FOR UPDATE',
         [fromUser]
       );
       
       if (!sender[0] || sender[0].balance < amount) {
         await conn.rollback();
+        conn.release();
         return res.status(400).json({ error: 'Insufficient funds' });
       }
 
       // Check recipient exists
       const [recipient] = await conn.query(
-        'SELECT 1 FROM users WHERE username = ?', 
+        'SELECT 1 FROM users WHERE username = ?',
         [toUser]
       );
       
-      if (recipient.length === 0) {
+      if (!recipient || recipient.length === 0) {
         await conn.rollback();
+        conn.release();
         return res.status(400).json({ error: 'Recipient not found' });
       }
 
-      // Execute transfers
+      // Execute transfer
       await conn.query(
         'UPDATE users SET balance = balance - ? WHERE username = ?',
         [amount, fromUser]
@@ -306,28 +325,20 @@ app.post('/api/transfer', async (req, res) => {
       );
       
       await conn.commit();
+      conn.release();
       res.json({ message: 'Transfer successful' });
     } else {
-      // Vulnerable version - execute statements separately but still vulnerable to SQLi
-      // Vulnerable query 1 - check balance and deduct
-       const [senderCheck] = await conn.query(
-        `SELECT * FROM users WHERE username = '${fromUser}'`
-      );
+      // Vulnerable version
+      const checkSenderQuery = `SELECT balance FROM users WHERE username = '${fromUser}' AND balance >= ${amount}`;
+      console.log('⚠️ Executing vulnerable query:', checkSenderQuery);
+      const [balanceCheck] = await conn.query(checkSenderQuery);
       
-      if (senderCheck.length === 0) {
-        return res.status(400).json({ error: 'Sender not found' });
-      }
-
-      // 2. Check balance (vulnerable to SQLi)
-      const [balanceCheck] = await conn.query(
-        `SELECT balance FROM users WHERE username = '${fromUser}' AND balance >= ${amount}`
-      );
-      
-      if (balanceCheck.length === 0) {
+      if (!balanceCheck || balanceCheck.length === 0) {
+        conn.release();
         return res.status(400).json({ error: 'Insufficient funds' });
       }
 
-      // 3. Perform transfer (vulnerable to SQLi)
+      // Perform transfer (vulnerable to SQLi)
       await conn.query(
         `UPDATE users SET balance = balance - ${amount} WHERE username = '${fromUser}'`
       );
@@ -340,86 +351,38 @@ app.post('/api/transfer', async (req, res) => {
         `INSERT INTO transactions (from_user, to_user, amount) VALUES ('${fromUser}', '${toUser}', ${amount})`
       );
       
+      conn.release();
       res.json({ message: 'Transfer successful' });
     }
   } catch (err) {
-    console.error('Transfer error:', err);
     res.status(500).json({ error: err.message });
-  } finally {
-    conn.release();
   }
 });
-// app.post('/api/transfer', async (req, res) => {
-//   const { fromUser, toUser, amount, secureMode } = req.body;
-//   const conn = await pool.getConnection();
-  
-//   try {
-//     if (secureMode === 'true' || secureMode === true) {
-//       // [Keep existing secure implementation...]
-//     } else {
-//       // Vulnerable version - execute statements with SQL injection possibilities
-//       // Using template literals to directly interpolate user input
-      
-//       // 1. First check if sender exists (vulnerable to SQLi)
-//       const [senderCheck] = await conn.query(
-//         `SELECT * FROM users WHERE username = '${fromUser}'`
-//       );
-      
-//       if (senderCheck.length === 0) {
-//         return res.status(400).json({ error: 'Sender not found' });
-//       }
-
-//       // 2. Check balance (vulnerable to SQLi)
-//       const [balanceCheck] = await conn.query(
-//         `SELECT balance FROM users WHERE username = '${fromUser}' AND balance >= ${amount}`
-//       );
-      
-//       if (balanceCheck.length === 0) {
-//         return res.status(400).json({ error: 'Insufficient funds' });
-//       }
-
-//       // 3. Perform transfer (vulnerable to SQLi)
-//       await conn.query(
-//         `UPDATE users SET balance = balance - ${amount} WHERE username = '${fromUser}'`
-//       );
-      
-//       await conn.query(
-//         `UPDATE users SET balance = balance + ${amount} WHERE username = '${toUser}'`
-//       );
-      
-//       await conn.query(
-//         `INSERT INTO transactions (from_user, to_user, amount) VALUES ('${fromUser}', '${toUser}', ${amount})`
-//       );
-      
-//       res.json({ message: 'Transfer successful' });
-//     }
-//   } catch (err) {
-//     console.error('Transfer error:', err);
-//     res.status(500).json({ error: 'Transfer failed' }); // Generic error message
-//   } finally {
-//     conn.release();
-//   }
-// });
 
 // Get user transactions
 app.get('/api/transactions/:username', async (req, res) => {
   const { username } = req.params;
   const { secureMode } = req.query;
+  
   try {
+    const pool = getPool(secureMode);
     const conn = await pool.getConnection();
-    if (secureMode === 'true') {
+    
+    if (secureMode === true || secureMode === 'true') {
       // Secure version
       const [result] = await conn.query(
-        'SELECT * FROM transactions WHERE from_user = ? OR to_user = ? ORDER BY timestamp DESC LIMIT 10',
+        'SELECT * FROM transactions WHERE from_user = ? OR to_user = ? ORDER BY timestamp DESC',
         [username, username]
       );
+      
       conn.release();
       res.json(result);
     } else {
       // Vulnerable version
-      const query = `SELECT * FROM transactions WHERE from_user = '${username}' OR to_user = '${username}' ORDER BY timestamp DESC LIMIT 10`;
+      const query = `SELECT * FROM transactions WHERE from_user = '${username}' OR to_user = '${username}' ORDER BY timestamp DESC`;
       console.log('⚠️ Executing vulnerable query:', query);
       const [result] = await conn.query(query);
+      
       conn.release();
       res.json(result);
     }
@@ -431,11 +394,17 @@ app.get('/api/transactions/:username', async (req, res) => {
 // Admin endpoints
 app.get('/api/admin/users', async (req, res) => {
   const { secureMode } = req.query;
+  
   try {
+    const pool = getPool(secureMode);
     const conn = await pool.getConnection();
-    if (secureMode === 'true') {
+    
+    if (secureMode === true || secureMode === 'true') {
       // Secure version
-      const [result] = await conn.query('SELECT username, role, balance, email, full_name, created_at FROM users');
+      const [result] = await conn.query(
+        'SELECT username, role, balance, email, full_name, created_at FROM users'
+      );
+      
       conn.release();
       res.json(result);
     } else {
@@ -443,6 +412,7 @@ app.get('/api/admin/users', async (req, res) => {
       const query = 'SELECT * FROM users';
       console.log('⚠️ Executing vulnerable query:', query);
       const [result] = await conn.query(query);
+      
       conn.release();
       res.json(result);
     }
@@ -451,29 +421,34 @@ app.get('/api/admin/users', async (req, res) => {
   }
 });
 
-app.get('/api/admin/transactions', async (req, res) => {
-  const { secureMode } = req.query;
+// Development reset endpoint (remove in production)
+app.post('/api/dev/reset', async (req, res) => {
   try {
-    const conn = await pool.getConnection();
-    if (secureMode === 'true') {
-      // Secure version
-      const [result] = await conn.query('SELECT * FROM transactions ORDER BY timestamp DESC');
-      conn.release();
-      res.json(result);
-    } else {
-      // Vulnerable version
-      const query = 'SELECT * FROM transactions ORDER BY timestamp DESC';
-      console.log('⚠️ Executing vulnerable query:', query);
-      const [result] = await conn.query(query);
-      conn.release();
-      res.json(result);
-    }
+    const conn = await insecurePool.getConnection();
+    await conn.query('DROP TABLE IF EXISTS transactions');
+    await conn.query('DROP TABLE IF EXISTS users');
+    await conn.query('DROP USER IF EXISTS bank_app_secure@localhost');
+    conn.release();
+    
+    await initializeDatabase();
+    res.json({ message: 'Database reset successful' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+// Start server after ensuring DB is initialized
+async function startServer() {
+  try {
+    await initializeDatabase();
+    const PORT = process.env.PORT || 3001;
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error('❌ Failed to initialize database, server not started');
+    process.exit(1);
+  }
+}
+
+startServer();

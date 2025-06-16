@@ -2,9 +2,9 @@ import { useState } from 'react';
 
 function AccountPage({ user, secureMode }) {
   const [lookupUser, setLookupUser] = useState('');
-  const [account, setAccount] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showNetworkTip, setShowNetworkTip] = useState(false);
 
   const attackExamples = [
     { 
@@ -18,19 +18,33 @@ function AccountPage({ user, secureMode }) {
     { 
       payload: "admin' -- ", 
       description: "Bypass authentication" 
-    }
+    },
+    {
+      payload: "nonuser' AND SUBSTRING((SELECT password FROM users WHERE username='admin' LIMIT 1),1,1)='a' --",
+      description: "Blind SQLi: Checks if admin's password starts with 'a'"
+    },
+    { 
+      payload: "x' AND IF(EXISTS(SELECT 1 FROM users WHERE username='admin'),SLEEP(4),0) -- ",
+      description: "Time-based: Check if admin exists (4s delay)" 
+    },
   ];
 
   const handleLookup = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    setAccount(null);
+    setShowNetworkTip(false);
     try {
       const res = await fetch(`http://localhost:3001/api/accounts/${lookupUser}?secureMode=${secureMode}`);
       const data = await res.json();
       if (res.ok) {
-        setAccount(data);
+        if (Array.isArray(data)) {
+          // SQL injection successful - don't show data in UI
+          setShowNetworkTip(true);
+        } else {
+          // Normal lookup result
+          setError(`Account found: ${data.username}`);
+        }
       } else {
         setError(data.error || 'Account not found');
       }
@@ -43,12 +57,6 @@ function AccountPage({ user, secureMode }) {
 
   const fillExample = (payload) => {
     setLookupUser(payload);
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleString();
   };
 
   return (
@@ -159,114 +167,25 @@ function AccountPage({ user, secureMode }) {
               borderRadius: '4px'
             }}>{error}</div>}
             
-            {/* Account Display Area */}
-            {account && (
-              <div className="account-results" style={{ marginTop: '20px' }}>
-                {Array.isArray(account) ? (
-                  // Display multiple accounts (SQL injection result)
-                  <div className="injection-results">
-                    <div className="injection-warning" style={{
-                      backgroundColor: '#fff5f5',
-                      borderLeft: '4px solid #e53e3e',
-                      padding: '15px',
-                      marginBottom: '20px'
-                    }}>
-                      <h4 style={{ color: '#e53e3e', marginTop: 0 }}>
-                        ⚠️ SQL Injection Successful - Showing {account.length} Records
-                      </h4>
-                      <p>This demonstrates how SQL injection can expose sensitive data</p>
-                    </div>
-                    {account.map((acc, index) => (
-                      <div key={index} style={{ 
-                        marginBottom: '20px',
-                        border: '1px solid #eee',
-                        borderRadius: '8px',
-                        padding: '15px'
-                      }}>
-                        <h5 style={{ marginBottom: '10px' }}>Account #{index + 1}</h5>
-                        <table className="account-table" style={{ 
-                          width: '100%', 
-                          borderCollapse: 'collapse'
-                        }}>
-                          <tbody>
-                            <tr>
-                              <th style={{ padding: '10px', textAlign: 'left', width: '30%' }}>ID</th>
-                              <td style={{ padding: '10px' }}>{acc.id || 'N/A'}</td>
-                            </tr>
-                            <tr>
-                              <th style={{ padding: '10px', textAlign: 'left', width: '30%' }}>Username</th>
-                              <td style={{ padding: '10px' }}>{acc.username || 'N/A'}</td>
-                            </tr>
-                            <tr>
-                              <th style={{ padding: '10px', textAlign: 'left', width: '30%' }}>Password Hash</th>
-                              <td style={{ padding: '10px', color: '#e53e3e', fontWeight: 'bold' }}>
-                                {acc.password ? `${acc.password.substring(0, 20)}...` : 'N/A'} (⚠️ exposed)
-                              </td>
-                            </tr>
-                            <tr>
-                              <th style={{ padding: '10px', textAlign: 'left', width: '30%' }}>Balance</th>
-                              <td style={{ padding: '10px' }}>
-                                {acc.balance ? `$${parseFloat(acc.balance).toFixed(2)}` : 'N/A'}
-                              </td>
-                            </tr>
-                            <tr>
-                              <th style={{ padding: '10px', textAlign: 'left', width: '30%' }}>Role</th>
-                              <td style={{ padding: '10px' }}>{acc.role || 'N/A'}</td>
-                            </tr>
-                            <tr>
-                              <th style={{ padding: '10px', textAlign: 'left', width: '30%' }}>Email</th>
-                              <td style={{ padding: '10px' }}>{acc.email || 'N/A'}</td>
-                            </tr>
-                            <tr>
-                              <th style={{ padding: '10px', textAlign: 'left', width: '30%' }}>Full Name</th>
-                              <td style={{ padding: '10px' }}>{acc.full_name || 'N/A'}</td>
-                            </tr>
-                            <tr>
-                              <th style={{ padding: '10px', textAlign: 'left', width: '30%' }}>Created At</th>
-                              <td style={{ padding: '10px' }}>{formatDate(acc.created_at)}</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  // Display results based on secureMode
-                  secureMode ? (
-                    // Secure mode - only show existence confirmation
-                    <div style={{
-                      padding: '15px',
-                      backgroundColor: '#f0fff4',
-                      borderLeft: '4px solid #38a169',
-                      borderRadius: '4px',
-                      marginTop: '15px'
-                    }}>
-                      <p style={{ margin: 0 }}>
-                        ✅ <strong>{account.username}</strong> is a registered user of our bank.
-                        You can send and receive money from this user.
-                      </p>
-                    </div>
-                  ) : (
-                    // Insecure mode - show all details
-                    <table className="account-table" style={{ 
-                      width: '100%', 
-                      borderCollapse: 'collapse'
-                    }}>
-                      <tbody>
-                        <tr style={{ borderBottom: '1px solid #eee' }}>
-                          <th style={{ padding: '10px', textAlign: 'left', width: '30%' }}>Username</th>
-                          <td style={{ padding: '10px' }}>{account.username}</td>
-                        </tr>
-                        <tr>
-                          <th style={{ padding: '10px', textAlign: 'left' }}>Balance</th>
-                          <td style={{ padding: '10px' }}>
-                            ${parseFloat(account.balance || 0).toFixed(2)}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  )
-                )}
+            {showNetworkTip && (
+              <div style={{ 
+                marginTop: '20px',
+                padding: '15px',
+                backgroundColor: '#fff7ed',
+                borderLeft: '4px solid #dd6b20',
+                borderRadius: '4px'
+              }}>
+                <h4 style={{ marginTop: 0, color: '#dd6b20' }}>
+                  ⚠️ Potential SQL Injection Detected
+                </h4>
+                <p>
+                  Check the Network tab in your browser's Developer Tools to see the full response.
+                  The application is intentionally not displaying the sensitive data here to simulate
+                  how an attacker would need to inspect network traffic to extract data.
+                </p>
+                <p style={{ fontWeight: 'bold', marginBottom: 0 }}>
+                  Look for the account lookup request and examine its response.
+                </p>
               </div>
             )}
           </div>
@@ -425,13 +344,16 @@ function AccountPage({ user, secureMode }) {
                     fontWeight: '500', 
                     margin: '0 0 5px 0',
                     fontSize: '0.9rem'
-                  }}>How it works:</p>
+                  }}>How to examine results:</p>
                   <p className="tip-description" style={{ 
                     color: '#4a5568', 
                     margin: '0',
                     fontSize: '0.85rem'
                   }}>
-                    These payloads manipulate the SQL query structure, potentially bypassing authentication or revealing sensitive data from the database.
+                    1. Open Developer Tools (F12 or Ctrl+Shift+I)<br />
+                    2. Go to the Network tab<br />
+                    3. Execute an attack<br />
+                    4. Find the API request and view its response
                   </p>
                 </div>
               </div>

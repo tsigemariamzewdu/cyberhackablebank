@@ -13,7 +13,8 @@ const LoginPage = ({ secureMode, addAlert, setUser }) => {
     "admin' -- ",
     "' OR '1'='1",
     "' OR 1=1 --",
-   
+  "admin' AND SUBSTRING(password,1,1)='a' -- ",
+  
   ]);
 
   const handleSubmit = async (e) => {
@@ -84,7 +85,7 @@ const LoginPage = ({ secureMode, addAlert, setUser }) => {
               <div className="form-group">
                 <label className="form-label">Password</label>
                 <input
-                  type="password"
+                  // type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   required
