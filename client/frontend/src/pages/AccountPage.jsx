@@ -25,7 +25,7 @@ function AccountPage({ user, secureMode }) {
     },
     { 
       payload: "x' AND IF(EXISTS(SELECT 1 FROM users WHERE username='admin'),SLEEP(4),0) -- ",
-      description: "Time-based: Check if admin exists (4s delay)" 
+      description: "Time-based: Triggers 4s delay if admin exists (will show detection message)" 
     },
   ];
 
@@ -34,19 +34,44 @@ function AccountPage({ user, secureMode }) {
     setLoading(true);
     setError(null);
     setShowNetworkTip(false);
+    
     try {
+      const startTime = Date.now();
       const res = await fetch(`http://localhost:3001/api/accounts/${lookupUser}?secureMode=${secureMode}`);
       const data = await res.json();
-      if (res.ok) {
+      const endTime = Date.now();
+      const responseTime = endTime - startTime;
+
+      // Detect time-based SQLi (response took longer than 3 seconds)
+      const isTimeBasedSQLi = responseTime > 3000 && 
+        attackExamples.some(ex => ex.description.includes('Time-based') && 
+        lookupUser.includes(ex.payload.split(' ')[0]));
+
+      if (isTimeBasedSQLi) {
+        setError('SQL injection detected! (Time-based delay)');
+        setShowNetworkTip(true);
+      } 
+      else if (res.ok) {
         if (Array.isArray(data)) {
-          // SQL injection successful - don't show data in UI
+          // UNION-based SQLi detected
           setShowNetworkTip(true);
+          setError('SQL injection detected! (Multiple accounts returned)');
         } else {
           // Normal lookup result
           setError(`Account found: ${data.username}`);
         }
       } else {
-        setError(data.error || 'Account not found');
+        // Check if this was an SQLi attempt
+        const isSQLiAttempt = attackExamples.some(example => 
+          lookupUser.includes(example.payload.split(' ')[0])
+        );
+        
+        if (isSQLiAttempt) {
+          setError('SQL injection attempted (check network tab)');
+          setShowNetworkTip(true);
+        } else {
+          setError(data.error || 'Account not found');
+        }
       }
     } catch (err) {
       setError('Network error');
@@ -158,14 +183,23 @@ function AccountPage({ user, secureMode }) {
                 )}
               </button>
             </form>
-            {error && <div style={{ 
-              marginTop: '15px', 
-              color: '#e53e3e', 
-              textAlign: 'center', 
-              padding: '10px', 
-              background: '#fff5f5', 
-              borderRadius: '4px'
-            }}>{error}</div>}
+            {error && (
+              <div style={{ 
+                marginTop: '15px',
+                padding: '12px',
+                borderRadius: '4px',
+                backgroundColor: error.includes('SQL injection') ? '#fff5f5' : '#f0f9ff',
+                borderLeft: `4px solid ${error.includes('SQL injection') ? '#c53030' : '#3182ce'}`,
+                color: error.includes('SQL injection') ? '#c53030' : '#3182ce'
+              }}>
+                {error}
+                {error.includes('SQL injection') && (
+                  <div style={{ marginTop: '8px', fontSize: '0.85em' }}>
+                    Check network tab for details
+                  </div>
+                )}
+              </div>
+            )}
             
             {showNetworkTip && (
               <div style={{ 
